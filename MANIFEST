@@ -1,5 +1,8 @@
-Changes
 MANIFEST
+README
+LICENSE
 Makefile.PL
-P4.pm
-test.pl
+lib/P.pm
+t/P.t
+META.yml                                 Module YAML meta-data (added by MakeMaker)
+META.json                                Module JSON meta-data (added by MakeMaker)

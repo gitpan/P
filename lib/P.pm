@@ -3,38 +3,40 @@
 { package P;
 	# next line needed for P.pm to be runnable & pass it's tests
 	BEGIN{ $::INC{__PACKAGE__.".pm"} = __FILE__."#__LINE__"};
-	use utf8;
 	use 5.10.0;
 	use warnings;
-	our $VERSION='1.0.9';
+	our $VERSION='1.0.10';
 	# RCS $Revision: 1.21 $ -  $Date: 2013-03-01 18:59:51-08 $
-	# 1.0.9 - Add Px - recursive object print in squished form;
-	#         Default to using Px for normal print
-	# 1.0.8 - fix when ref to IO -- wasn't dereferenced properly
-	#       - upgrade of self-test/demo to allow specifying which test
-	#         to run from cmd line; test numbers are taken from
-	#         the displayed examples when run w/no arguments
-	#       B:still doesn't run cleanly under test harness may need to
-	#         change cases for that
-	#       - POD update to current code 
-	# 1.0.7 - (2013-1-9) add support for printing blessed objects
-	#       - pod corrections
-	#       - strip added LF from 'rev' example with tr (looks wrong)
-	# 1.0.6 - add manual check for LF at end (chomp doesn't always work)
-	# 1.0.5 - if don't recognize ref type, print var
-	# 1.0.4 - added support for printing contents of arrays and hashes.
-	# 				(tnx 2 MidLifeXis@prlmnks 4 brain reset)
-	# 1.0.3 - add Pea
-	# 1.0.2 - found 0x83 = "no break here" -- use that for NL suppress
-	# 			- added support for easy inclusion in other files 
-	# 				(not just as lib);
-	# 			- add ISA and EXPORT to 'mem' so they are available @ BEGIN time
+	# 1.0.10	- remove Carp::Always from test (wasn't needed and caused it
+	#           to fail on most test systems)
+	#           add OO-oriented way to set internal P ops (to be documented)
+	#         - fixed bug in logic trimming recursion depth on objects
+	# 1.0.9 	- Add Px - recursive object print in squished form;
+	#       		Default to using Px for normal print
+	# 1.0.8 	- fix when ref to IO -- wasn't dereferenced properly
+	#       	- upgrade of self-test/demo to allow specifying which test
+	#       	  to run from cmd line; test numbers are taken from
+	#       	  the displayed examples when run w/no arguments
+	#       	B:still doesn't run cleanly under test harness may need to
+	#       	  change cases for that (Fixed)
+	#       	- POD update to current code 
+	# 1.0.7 	- (2013-1-9) add support for printing blessed objects
+	#       	- pod corrections
+	#       	- strip added LF from 'rev' example with tr (looks wrong)
+	# 1.0.6 	- add manual check for LF at end (chomp doesn't always work)
+	# 1.0.5 	- if don't recognize ref type, print var
+	# 1.0.4 	- added support for printing contents of arrays and hashes.
+	# 					(tnx 2 MidLifeXis@prlmnks 4 brain reset)
+	# 1.0.3 	- add Pea
+	# 1.0.2 	- found 0x83 = "no break here" -- use that for NL suppress
+	# 				- added support for easy inclusion in other files 
+	# 					(not just as lib);
+	# 				- add ISA and EXPORT to 'mem' so they are available @ BEGIN time
 	#
-	# 1.0.1 - add 0xa0 (non breaking space) to suppress NL
+	# 1.0.1 	- add 0xa0 (non breaking space) to suppress NL
 	our (@ISA, @EXPORT);
 	BEGIN {@EXPORT=qw(P Pa Pe Pae), @ISA=qw(Exporter) };
-	use parent 'Exporter';
-
+	use Exporter;
 
 	sub Px { my $p = shift;
 		my $lvl = scalar @_ ? $_[0] : 2;
@@ -42,7 +44,7 @@
 		my $ro = $_[1] if scalar @_>1;
 		return "(undef)" unless defined $p;
 		my $ref = ref $p;
-		unless ($ref || $lvl<1) {
+		if (!$ref || 1 >$lvl--) {
 			sprintf do { given ($p) { "%d"			when /^[-+]?\d+$/; 
 																"%s"			when defined $ro; 
 																"'%s'"		when 1==length $_;
@@ -56,48 +58,48 @@
 				when (/^GLOB$/)		{ '<*='.<$p>.'>' }
 				when (/^IO$/)			{ '<='.<$p>.'>'}
 				when ('ARRAY') { 
-				when ('SCALAR') { $pkg.'\\' . Px($$_, $lvl-1).' ' } 
-				$pkg . "[". (join ',', map { Px($_, $lvl-1) } @$p ) ."]" }
+				when ('SCALAR') { $pkg.'\\' . Px($$_, $lvl).' ' } 
+				$pkg . "[". (join ',', map { Px($_, $lvl) } @$p ) ."]" }
 				when ('HASH') { $pkg.'{' . ( join ', ', @{[
-					map { Px($_, $lvl-1, 1) .  '=>'. Px($p->{$_}, $lvl-1) } 
+					map { Px($_, $lvl, 1) .  '=>'. Px($p->{$_}, $lvl) } 
 					keys %$p]} ) . '}' }
 				default { "$p" }
 			}
 		}
 	}
 
-
+	use constant NBH => 0x83;
+	my %dflts=(depth=>2, noquote=>1);
 
 	sub P(@) {    # 'safen' to string or FH or STDOUT
-		my $_;
+		my ($_, $p);
+		my ($depth, $noquote) = ($dflts{depth}, $dflts{noquote});
 		do{ @_=@$_[0] } if ref $_[0] eq 'ARRAY';
-		my ($fh, $f);
-		my $explicit_out;
+		if (ref $_[0] eq __PACKAGE__) {
+			$p=shift;
+			$depth=$p->{depth} if exists $p->{depth};
+		}
+		my ($fh, $f, $explicit_out);
 		if (ref $_[0] eq 'GLOB') {
-			$fh = shift;
-			$explicit_out=1;
-		} else {
-			$fh =\*STDOUT;
-		}
-		my ($fc, @flds, $res)=1;
-		my $fmt=$_[0];
-		if ($fmt) {
-			if ((index $fmt, '%')>-1) {
-				@flds=split /(?<!%)%(?!%)/, $fmt;
-				$fc=scalar @flds;
-			}
-		}
+			($fh, $explicit_out) = (shift, 1);
+		} else { $fh =\*STDOUT }
+		my ($fc, $fmt, @flds, $res)=(1, $_[0]);
+#		if ($fmt) {
+#			if ((index $fmt, '%')>-1) {
+#				@flds=split /(?<!%)%(?!%)/, $fmt;
+#				$fc=scalar @flds;
+#			}
+#		}
 		if ($fc) {
 			$f=shift;
 			no warnings;
-			$res =  sprintf $f,	map {my $_ = Px($_,2,1) } @_ } 
+			$res =  sprintf $f,	map {my $_ = Px($_,$depth,$noquote) } @_ } 
 		else { $res=Px(@_)}
 		chomp $res;
 		my $ctx = defined wantarray;
-		# 0x83=128+3=131 = non-breaking space -- if at end, trim it & don't CR;
     {use bytes; #pretend we know what we are doing... ;-)
-		if ((ord substr $res,-1) eq 131) {                 #"NO_BREAK_HERE"
-      my $w=0; $w=1 if (ord substr $res, -2,1) eq 194; #UTF-8 encoded?
+		if ((ord substr $res,-1) eq NBH) {                 #"NO_BREAK_HERE"
+      my $w=0; $w=1 if (ord substr $res, -2,1) eq 0xC2; #UTF-8 encoded?
 			$res=substr $res,0,-($w+1)+length $res ;
 			$ctx=1;
 		}};
@@ -116,6 +118,25 @@
 	};
 	sub Pea(@) {goto &Pe};
 	sub Pae(@) {goto &Pe};
+
+
+	sub ops($) {
+		my $p = shift; my $c=ref $p || $p;
+		bless $p = {}, $c unless ref $p;
+		my $args = $_[0];
+		$p->{$_}=$dflts{$_} for keys %dflts;
+		die "ops takes a hash to pass arguments" unless ref $args eq 'HASH';
+		foreach (keys %$args) {
+			unless (exists $p->{$_}) {
+				warn P "Unknown key \"%s\" passed to ops",$_;
+			} else {
+				$p->{$_}=$args->{$_};
+			}
+		}
+		$p
+	}
+
+
 1;}
 {
 	package main;
@@ -142,7 +163,7 @@ P, Pe, Pa, Pae                       Safer, General Format + Print sub
 
 =head1 VERSION
 
-Version  "1.0.9"
+Version  "1.0.10"
 
 =head1 SYNOPSIS
 
@@ -169,13 +190,16 @@ it does a small self-demo/test. Pod-documentation also builtin.
 
 =head1 DESCRIPTION
 
-While designed with development in mind, isn't limited to such.
+While designed to speed up and simplify development, isn't limited to such.
 
-It combines features of printf, sprintf, and say: printing to strings
-if its output is assign to something, adding newlines when output is
-not to a string, ignoring a single extra newlines if added, allowing
-suppression of the auto-newline using the Unicode-control char
-"\0x83" "Don't break here".
+It tries to auto-handle adding Newlines at the end of a line, substrating
+or adding LF's at the end depending on the circumstance.  When you print
+vars via a string format, "undef" is handled 'in-line', with (undef)
+being printed in fields (though it is likely to retrn a 0 for numeric
+formats at this time.
+
+The auto-newline feature at the end of a line can be supressed by adding
+the Unicode control char "Don't break here" (0x83) at the end of a string.
 
 Any items printed as strings that are undef -- will print '(undef)'.
 
@@ -277,18 +301,13 @@ S<P "*this=%s", $this;          # show blessed objs. + top-lvl content>
 
 Note, values given as args to a formatted print statement, are
 checked for undef and substitute "(undef)" for undefined values.
-If you print vars as numbers, this has the side effect of causing
+If you print vars as numbers, this can have the side effect of causing
 runtime format errors, so best to print as strings to see 'undef'.
 S<>
 While usable in any code, it's use was designed to save typing, time
 and work of undef checking, newline handling, and doing the right
 thing with given input.  It may not be suitable where speed is
 important.
-S<>
-Hidden (but documented) feature: inserting the 'NO BREAK HERE'
-control- char (\x83) as the last char of
-a string will suppress a 'break' (newline) where it normally would
-be added.
 S<>
 S<>
 =cut
@@ -298,7 +317,6 @@ __DATA__
 # line ' .__LINE__ . ' "' ' __FILE__ . "\"\n" . '
 foreach (qw{STDERR STDOUT}) {select *$_; $|=1};
 use strict; use warnings;
-use Carp::Always;
 use P;
 my %tests;
 my $MAXCASES=11;

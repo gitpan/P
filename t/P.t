@@ -54,7 +54,7 @@ ok( -x $tp , "P.pm executable?");		#3
 
 sub get_case($;$) {
 	my $case = shift;
-	my $cmd = @_? "$tp $case ".$_[0] : "$tp $case |";
+	my $cmd = @_? "perl $tp $case ".$_[0] : "perl $tp $case |";
 	open(my $fh, $cmd) || return undef;
 	my $out;
 	{ local $/=undef;

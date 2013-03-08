@@ -3,10 +3,19 @@
 { package P;
 	# next line needed for P.pm to be runnable & pass it's tests
 	BEGIN{ $::INC{__PACKAGE__.".pm"} = __FILE__."#__LINE__"};
-	use 5.10.0;
+	use 5.8.0;
 	use warnings;
-	our $VERSION='1.0.10';
-	# RCS $Revision: 1.21 $ -  $Date: 2013-03-01 18:59:51-08 $
+	our $VERSION='1.0.11';
+
+	# RCS $Revision: 1.24 $ -  $Date: 2012-03-07 21:02:25-08 $
+	# 1.0.11	- revert printing decimals using %d: dropped significant leading
+	#           zero's;  Of NOTE: floating point output in objects is
+	#           not default: we use ".2f"
+	#         - left off space after comma in arrays(fixed)
+	#         - rewrite of sections using given/when/default to not use
+	#           them; try for 5.8 compat
+	#         - call perl for invoking test vs. relying on #! invokation
+	#         - pod updates mentioning 'ops'/depth
 	# 1.0.10	- remove Carp::Always from test (wasn't needed and caused it
 	#           to fail on most test systems)
 	#           add OO-oriented way to set internal P ops (to be documented)
@@ -38,33 +47,32 @@
 	BEGIN {@EXPORT=qw(P Pa Pe Pae), @ISA=qw(Exporter) };
 	use Exporter;
 
+	my $given = [[ '$p =~ /^[-+]?\d+$/',				q{%s}			],
+								[ '$ro',	 										q{%s}			],
+								[ '1==length $p',							q{'%s'}		],
+								[ '$p =~ /^[+-]?\d*\.\d*$/',	q{%.2f}		],
+								[ 1, 													q{"%s"}		]	];
 	sub Px { my $p = shift;
 		my $lvl = scalar @_ ? $_[0] : 2;
-		#$lvl or return '…';
-		my $ro = $_[1] if scalar @_>1;
+		my $ro = scalar @_>1 ? $_[1]:0;
 		return "(undef)" unless defined $p;
 		my $ref = ref $p;
 		if (!$ref || 1 >$lvl--) {
-			sprintf do { given ($p) { "%d"			when /^[-+]?\d+$/; 
-																"%s"			when defined $ro; 
-																"'%s'"		when 1==length $_;
-																"%.2f"		when /^[-+]?\d*\.\d*$/; 
-																default { "\"%s\""}; 					}},		$p;
+			sprintf &{sub(){eval $_->[0] && return $_->[1] for @$given }}, $p;
 		} else { 
 			my $pkg='';
-			if ( 0<= (index $p,'=') && $p=~m{([\w:]+)=(\w+)}) { 
-				$pkg=$1.":", $ref=$2 }
-			given($ref) {
-				when (/^GLOB$/)		{ '<*='.<$p>.'>' }
-				when (/^IO$/)			{ '<='.<$p>.'>'}
-				when ('ARRAY') { 
-				when ('SCALAR') { $pkg.'\\' . Px($$_, $lvl).' ' } 
-				$pkg . "[". (join ',', map { Px($_, $lvl) } @$p ) ."]" }
-				when ('HASH') { $pkg.'{' . ( join ', ', @{[
-					map { Px($_, $lvl, 1) .  '=>'. Px($p->{$_}, $lvl) } 
-					keys %$p]} ) . '}' }
-				default { "$p" }
-			}
+			($pkg, $ref)=($1, $2) if 0<= (index $p,'=') && $p=~m{([\w:]+)=(\w+)}; 
+			my %actions = ( 
+				GLOB	=>	\&{sub(){'<*='.<$p>.'>'}},
+				IO		=>	\&{sub(){ '<='.<$p>.'>'}},
+				SCALAR=>	\&{sub(){ $pkg.'\\' . Px($$_, $lvl).' ' }},
+				ARRAY	=>	\&{sub(){ $pkg."[". 
+													(join ', ', map{ Px($_, $lvl) } @$p ) ."]" }},
+				HASH	=>	\&{sub(){ $pkg.'{' . ( join ', ', @{[
+											map { Px($_, $lvl, 1) .  '=>'. Px($p->{$_}, $lvl,0) } 
+											keys %$p]} ) . '}' }},);
+			if (my $act=$actions{$ref}) { &$act } 
+			else { "$p" }
 		}
 	}
 
@@ -140,12 +148,13 @@
 1;}
 {
 	package main;
-  use 5.10.0;
+  use 5.8.0;
 	use utf8;
 
 	(caller 0)[0] || do {
     $_=do{ $/=undef, <main::DATA>};
 		close main::DATA;
+		our @globals;
 		eval $_;
     die "self-test failed: $@" if $@;
 		1;
@@ -154,16 +163,19 @@
 }
 
 ############################################################################
-#{{{1
+#							Pod documentation						{{{1
 #    use P;
 
 =head1 NAME
 
-P, Pe, Pa, Pae                       Safer, General Format + Print sub
+=encoding utf-8
+
+
+P, Pe, Pa, Pae                     Safer, friendlier sprintf/printf+say
 
 =head1 VERSION
 
-Version  "1.0.10"
+Version  "1.0.11"
 
 =head1 SYNOPSIS
 
@@ -180,95 +192,174 @@ S<Pe, Pae (same as P and Pa but ouput defaults to STDERR)>
 
 =back
 
-Combined printf, sprintf & say in 1 routine (almost).  Can safely handle
-*args* to formmatted strings that are 'undef' & will print '(undef)' in
-place of the output.  It knows how to print simple references and does so
-automatically rather than HASH=(0x235432), at the 1st level, it
-will print the contents of the hash: {none=>0, one=>1, two=>2}.  Meant
-for use in development and as debug aid.  Made executable and run, 
-it does a small self-demo/test. Pod-documentation also builtin.
+p is a combined printf, sprintf & say in 1 routine (almost).  When printed as
+strings (C<"%s">), undefs are automatically caught and C"(undef)" is
+printed in place of <CUse of uninitialized value $x in xxx at -e line z.>
+It knows how to print simple references and does so automatically. Instead
+of HASH=(0x235432), at the first two¹ levels, it will print the contents
+of the hash: {none=>0, one=>1, two=>2}.  Meant for use in development and
+as debug aid.  Made executable and run, it does a small self-demo/test.
+Pod-documentation also builtin. 
+
+¹-two was chosen so that the first level of the interior of an object
+could be printed, as the first reference is to the object itself.
 
 =head1 DESCRIPTION
 
 While designed to speed up and simplify development, isn't limited to such.
 
-It tries to auto-handle adding Newlines at the end of a line, substrating
-or adding LF's at the end depending on the circumstance.  When you print
-vars via a string format, "undef" is handled 'in-line', with (undef)
-being printed in fields (though it is likely to retrn a 0 for numeric
-formats at this time.
+It automatically handles newlines at the end of output, letting the user 
+ignore an LF at the end of a line (present or not).  
 
 The auto-newline feature at the end of a line can be supressed by adding
-the Unicode control char "Don't break here" (0x83) at the end of a string.
+the Unicode control char "Don't break here" (0x83) at the end of a string,
+but be warned, in normal ourput, lines are line buffered and the I/O
+system  won't flush the output until it sees the end-of-line.
 
-Any items printed as strings that are undef -- will print '(undef)'.
+Blessed objects, by default,  are printed with a short label at the front.
+This means the output is NOT, at this time, by default, valid perl
+code.  Compactness takes precidence over language semantics.  Note that
+these default when printing objects via C<"%s">.  Printing something other
+than a reference will print (or format) the object the same way that
+printf or sprintf would.
+
+A difference between P and sprintf, paraphrasing and contrasting the
+sprintf documentation: B<Like> C<printf>, P follows the perl design
+standard and tries to <i"Do what you mean"> when you pass it array as your
+first argument.  The array is NOT given scalar context and instead of
+trying to use the size of the array as a format (which is almost never
+useful), it will use the first element of the array as the format
+specification by which to format the rest of the arguments.  This is the
+same behavior of C<printf> and fixes a wart in the language.  It also,
+can automatically be used as a replacement for "say", as it auto-appends
+the needed LineFeed at the end of line.  It will NOT append a line
+feed to the formatted output if it is assigned to a variable.
+
+B<NOTE:> this has the, sometimes, surprising effect of silencing C<P> when
+you might not expect it: if it is the last statement in a subroutine,
+P will assume that you want to return the formatted string as the value
+of the subroutine or function.  
+
+=head1 Experimental Feature
+
+While P is normally called procedurally, and not as an object, there are 
+some rare cases where you would really like it to print just 1 level
+deeper.  In such cases, to pass options to P, you need an object handle
+to it's C<ops> routine to which you can pass a c<depth> parameter.
+
+=head1 Example
+
+Suppose you had an array of objects, and you wanted to see the contents
+of the objects in the array.  Normally P would only print the first level
+-- being the contents of the array:
+
+=over 4
+
+S<my %complex_probs = (                                >
+S<    questions =E<gt> [ "sqrt(-4)",  "(1-i)**2"     ],>
+S<    answers   =E<gt> [ {real =E<gt> 0, i =E<gt>2 }, >
+S<                   {real =E<gt> 0, i =E<gt> -2 } ] );>
+S<P "my probs = %s", \%complex_probs;>
+
+=back
+
+Would normally produce:
+
+=over 4
+
+S<my probs = { questions => [ "sqrt(-4)",    "(1-i)**2" ],>
+S<             answers=E<gt>["HASH(0x235efc0)", "HASH(0x235f098)" ] } >
+
+=back
+
+When you might want to see those hashes as they are short anyway.  To
+do that you'd use the object and print with that, like this:
+
+=over 4
+
+S<my %complex_probs = (                                     >
+S<    questions => [ "sqrt(-4)",          "(1-i)**2"     ],>
+S<    answers   => [ {real => 0, i =>2 }, { real => 0, i => -2 } ] );>
+S<my $p=P::->ops({depth=>3});                                >
+S<$p-E<gt>P("my array = %s", \%complex_probs);>
+
+=back
+
+Which produces:
+
+=over 4
+
+S<my array = {questions=E<gt>["sqrt(-4)", "(1-i)**2"],>
+S<answers=E<gt>[{i=E<gt>2, real=E<gt>0}, {i=E<gt>-2, real=E<gt>0}]}>
+
+=back
 
 =head1 EXAMPLES
 
 =over 4
 
 =item  
-S<P "Hello %s", "World";        # auto NL when to a FH>
+S<C<P "Hello %s", "World";        # auto NL when to a FH>>
 
 =item
 S<>
 
 =item 
-S<P "Hello \x83"; P "World";    # \x83: suppress auto-NL to FH's >
+S<C<P "Hello \x83"; P "World";    # \x83: suppress auto-NL to FH's >>
 
 =item
 S<>
 
 =item
-S<$s = P "%s", "Hello %s";      # not needed if printing to string >
+S<C<$s = P "%s", "Hello %s";      # not needed if printing to string >>
 
 =item
-S<P $s, "World";                # still prints "Hello World" >
-
-=item
-S<>
-
-=item 
-S<@a = ("%s", "my string");     # using array, fmt as 1st arg >
-
-=item 
-S<Pa @a;                        # use 'Pa' have @a as args to 'P'>
-
-=item 
-S<@a = ("Hello %s", "World");   # format in array[0]>
-
-=item 
-S<Pa @a;                        # use @a as args for P>
-
-=item 
-S<P @a;                         # prints first of @a elements (Hello %s)>
-
-=item
-S<>
-
-=item
-S<P 0 + @a;                     # prints #items in 'a'>
-
-=item
-S<P "a=%s", \@a;                # prints contents of 'a': [1,2,3...]>
+S<C<P $s, "World";                # still prints "Hello World" >>
 
 =item
 S<>
 
 =item 
-S<P STDERR, @a                  # use @a as args to a specific FH>
+S<C<@a = ("%s", "my string");     # using array, fmt as 1st arg >>
+
+=item 
+S<C<Pa @a;                        # use 'Pa' have @a as args to 'P'>>
+
+=item 
+S<C<@a = ("Hello %s", "World");   # format in array[0]>>
+
+=item 
+S<C<Pa @a;                        # use @a as args for P>>
+
+=item 
+S<C<P @a;                         # prints 1st of @a elements (Hello %s)>>
+
+=item
+S<>
+
+=item
+S<C<P 0 + @a;                     # prints #items in 'a'>>
+
+=item
+S<C<P "a=%s", \@a;                # prints contents of 'a': [1,2,3...]>>
+
+=item
+S<>
+
+=item 
+S<C<P STDERR, @a                  # use @a as args to a specific FH>>
 
 =item	
-S<                              # NOTE: "," after FH L</*STC>>
+S<C<                              # NOTE: "," after FH L</*STC>>>
 
 =item 
-S<Pe  "Output to STDERR"        # 'Shortcut' for P to STDERR>
+S<C<Pe  "Output to STDERR"        # 'Shortcut' for P to STDERR>>
 
 =item
 S<>
 
 =item
-S<# P Hash bucket usage + contents with hashes>
+S<C<# P Hash bucket usage + contents with hashes>>
 
 =item
 S<>
@@ -276,7 +367,7 @@ S<>
 =over 1
 
 =item
-S<%H=(one=E<gt>1, two=E<gt>2, u=E<gt>undef);>
+S<C<%H=(one=E<gt>1, two=E<gt>2, u=E<gt>(undef));>>
 
 =back
 
@@ -284,16 +375,16 @@ S<%H=(one=E<gt>1, two=E<gt>2, u=E<gt>undef);>
 S<>
 
 =item
-S<P "%H #items %s", 0+%H;       # - Show number of  items in hash>
+S<C<P "%H #items %s", 0+%H;       # - Show number of  items in hash>>
 
 =item
-S<P "%H hash usage: %s", "".%H; # - Shows used/total Hash bucket usage>
+S<C<P "%H hash usage: %s", "".%H; # - Shows used/total Hash bucket usage>>
 
 =item
-S<P "%H=%s", \%H;               # show contents of hash {x=>E<gt>S<y, ...}>
+S<C<P "%H=%s", \%H;               # show contents of hash {x=>E<gt>S<y, ...}>>
 
 =item
-S<P "*this=%s", $this;          # show blessed objs. + top-lvl content>
+S<C<P "*this=%s", $this;          # show blessed objs. + top-lvl content>>
 
 =back
 
@@ -316,14 +407,14 @@ S<>
 __DATA__
 # line ' .__LINE__ . ' "' ' __FILE__ . "\"\n" . '
 foreach (qw{STDERR STDOUT}) {select *$_; $|=1};
-use strict; use warnings;
+use strict; use warnings; 
 use P;
 my %tests;
 my $MAXCASES=11;
 { my $i=1;
   foreach (@ARGV) {
-    $tests{$_}=1 when /^\d+/ && $_<=$MAXCASES;
-    default {die P "%s: no such test case", $_}
+    if (/^\d+/ && $_<=$MAXCASES) {$tests{$_}=1}
+		else {die P "%s: no such test case", $_}
   }
 }
 exists $tests{7} and $tests{6}=1;
@@ -395,7 +486,7 @@ case "P HASH ref" &&										# case 10 - hash expansion
 
 case "P Pkg ref" && do									# case 11 - blessed object
 {	my $hp;
-	bless $hp={a=>1, b=>2}, 'Pkg';
+	bless $hp={a=>1, b=>2, x=>'y'}, 'Pkg';
 	P "%s", $hp;
 };
 

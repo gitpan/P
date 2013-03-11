@@ -37,7 +37,7 @@ BEGIN{
 
 	#	3 setup tests, all answers have two parts except for 1 (#6)
 	
-	$num_tests=3+2*@answers-1;
+	$num_tests=3+2*@answers-2;
 }
 
 use Test::More tests => $num_tests;
@@ -50,7 +50,7 @@ my $match_expr=qr{^.(\d+)\s*\(([^\)]+)\)[^:]*:\s*(.*)$};
 
 ok( -e $tp , "P.pm exist?");
 chmod( 0755, $tp); 
-ok( -x $tp , "P.pm executable?");		#3
+#ok( -x $tp , "P.pm executable?");		#3
 
 sub get_case($;$) {
 	my $case = shift;

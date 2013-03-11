@@ -5,9 +5,14 @@
 	BEGIN{ $::INC{__PACKAGE__.".pm"} = __FILE__."#__LINE__"};
 	use 5.8.0;
 	use warnings;
-	our $VERSION='1.0.11';
+	our $VERSION='1.0.12';
 
-	# RCS $Revision: 1.24 $ -  $Date: 2012-03-07 21:02:25-08 $
+
+	# RCS $Revision: 1.25 $ -  $Date: 2013-03-10 16:00:22-08 $
+	# 1.0.12  - test case change: change of OBJ->print to print OBJ to
+	#           try to get around problem on BSD5.12 in P.pm
+	#         - change embedded test case to not use util 'rev', but
+	#           included perl script 'rev' in 't' directory...(for native win)
 	# 1.0.11	- revert printing decimals using %d: dropped significant leading
 	#           zero's;  Of NOTE: floating point output in objects is
 	#           not default: we use ".2f"
@@ -116,7 +121,7 @@
 	 						"Invalid File Handle presented for output, using STDERR:";
 			$explicit_out=1;
 		} else { return $res if (!$explicit_out and $ctx) }
-		$fh->print ($res . (!$ctx ? "\n" : "")  );
+		print $fh ($res . (!$ctx ? "\n" : "")  );
 	};
 	sub Pa(@) {goto &P};
 	sub Pe($;@) {
@@ -175,7 +180,7 @@ P, Pe, Pa, Pae                     Safer, friendlier sprintf/printf+say
 
 =head1 VERSION
 
-Version  "1.0.11"
+Version  "1.0.12"
 
 =head1 SYNOPSIS
 
@@ -468,7 +473,8 @@ case "prev string" &&										# case 7 - print embedded P output
 
 case "p thru '/.../rev' fr/FH" && do {	# case 8 - P 'pipe'
   my $fh;
-  open $fh, "echo -n \"(echo) ${\(+iter)}\" |rev |tr -d \"\n\" |" or 
+	my $cmd = "echo -n \"(echo) ${\(+iter)}\" |perl t/rev";
+  open $fh, "$cmd |" or 
     die p(\*STDERR, "Problem opening 'rev' util ($!),".
                      " got PATH?(skipping)\n\n", 1); 
     P \*STDOUT, "%s", $fh;

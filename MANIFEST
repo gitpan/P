@@ -4,5 +4,7 @@ LICENSE
 Makefile.PL
 lib/P.pm
 t/P.t
+t/rev
+
 META.yml                                 Module YAML meta-data (added by MakeMaker)
 META.json                                Module JSON meta-data (added by MakeMaker)

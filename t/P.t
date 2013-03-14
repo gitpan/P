@@ -47,6 +47,7 @@ BEGIN { use_ok('P') };
 my $match_case_n_name=qr{^.(\d+)\s*\(([^\)]+)\)[^:]*:};
 my $match_testout=qr{\s*(.*)$};
 my $match_expr=qr{^.(\d+)\s*\(([^\)]+)\)[^:]*:\s*(.*)$};
+my $weak_match_expr=qr{^(?:.(\d+)\s*)?\(?([^\)]*)\)?[^:]*:?\s*(.*)$};
 
 ok( -e $tp , "P.pm exist?");
 chmod( 0755, $tp); 
@@ -54,7 +55,7 @@ chmod( 0755, $tp);
 
 sub get_case($;$) {
 	my $case = shift;
-	my $cmd = @_? "perl $tp $case ".$_[0] : "perl $tp $case |";
+	my $cmd = @_? "perl $tp $case ".$_[0]."|" : "perl $tp $case |";
 	open(my $fh, $cmd) || return undef;
 	my $out;
 	{ local $/=undef;
@@ -68,12 +69,20 @@ my $caseno=0;
 for my $matchp (@answers) {
 	my ($rcase, $name, $rstr);
 	my $re = $matchp->[1];
-	if (++$caseno == 5) {
-		my $part1=`$tp 5 2>stderr.out.txt`; chomp $part1;
-		$part1 =~ m{$match_case_n_name};
-		($rcase, $name) = ($1, $2);
-		$rstr=`cat stderr.out.txt`;chomp $rstr;
-		unlink "stderr.out.txt";
+	++$caseno;
+	if ($caseno == 5) {
+		my $null;
+		my $dev;
+		open($null, ">", $dev="/dev/null") or
+			open($null, ">", $dev="NULL:") or 
+			die "Cannot open /dev/null nor NULL:";
+		close ($null);
+		my $resp = get_case($matchp->[0],"2>$dev");
+		$resp =~ m{$weak_match_expr};
+		($rcase,$name, $rstr) = ($1,$2,$3);
+		$resp = get_case($matchp->[0],"2>&1 >$dev");
+		$resp =~ m{$weak_match_expr};
+		$rstr = $2;
 	} elsif ($caseno == 6) {
 		my $resp = get_case($matchp->[0]);
 		$resp =~ m{$match_expr};
@@ -88,11 +97,13 @@ for my $matchp (@answers) {
 		$resp =~ m{$match_expr};
 		($rcase,$name, $rstr) = ($1,$2,$3);
 	} else {
+		&saveSTD_n_redirect_err if $caseno==5;
 		my $resp = get_case($matchp->[0]);
 		$resp =~ m{$match_expr};
 		($rcase,$name, $rstr) = ($1,$2,$3);
+		&restoreSTDs if $caseno==5;
 	}
-	ok($caseno == $rcase, "received testcase $caseno");
+	ok($rcase && $caseno == $rcase, "received testcase $caseno");
 	if (length($re)) {ok($rstr =~ m{$re}, $name)}
 }
 

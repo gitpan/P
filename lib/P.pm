@@ -5,12 +5,13 @@
 	BEGIN{ $::INC{__PACKAGE__.".pm"} = __FILE__."#__LINE__"};
 	use 5.8.0;
 	use warnings;
-	our $VERSION='1.0.12';
+	our $VERSION='1.0.13';
 
 
-	# RCS $Revision: 1.25 $ -  $Date: 2013-03-10 16:00:22-08 $
+	# RCS $Revision: 1.27 $ -  $Date: 2012-03-13 20:44:47-08 $
+	# 1.0.13  - test case change only to better test print to STDERR
 	# 1.0.12  - test case change: change of OBJ->print to print OBJ to
-	#           try to get around problem on BSD5.12 in P.pm
+	#           try to get around problem on BSD5.12 in P.pm (worked!)
 	#         - change embedded test case to not use util 'rev', but
 	#           included perl script 'rev' in 't' directory...(for native win)
 	# 1.0.11	- revert printing decimals using %d: dropped significant leading
@@ -180,7 +181,7 @@ P, Pe, Pa, Pae                     Safer, friendlier sprintf/printf+say
 
 =head1 VERSION
 
-Version  "1.0.12"
+Version  "1.0.13"
 
 =head1 SYNOPSIS
 

@@ -5,10 +5,11 @@
 	BEGIN{ $::INC{__PACKAGE__.".pm"} = __FILE__."#__LINE__"};
 	use 5.8.0;
 	use warnings;
-	our $VERSION='1.0.13';
+	our $VERSION='1.0.14';
 
 
-	# RCS $Revision: 1.27 $ -  $Date: 2012-03-13 20:44:47-08 $
+	# RCS $Revision: 1.29 $ -  $Date: 2012-03-13 21:11:04-08 $
+	# 1.0.14  - arg! misspelled Win nul: devname(fixed)
 	# 1.0.13  - test case change only to better test print to STDERR
 	# 1.0.12  - test case change: change of OBJ->print to print OBJ to
 	#           try to get around problem on BSD5.12 in P.pm (worked!)
@@ -181,7 +182,7 @@ P, Pe, Pa, Pae                     Safer, friendlier sprintf/printf+say
 
 =head1 VERSION
 
-Version  "1.0.13"
+Version  "1.0.14"
 
 =head1 SYNOPSIS
 

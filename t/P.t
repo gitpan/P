@@ -74,8 +74,8 @@ for my $matchp (@answers) {
 		my $null;
 		my $dev;
 		open($null, ">", $dev="/dev/null") or
-			open($null, ">", $dev="NULL:") or 
-			die "Cannot open /dev/null nor NULL:";
+			open($null, ">", $dev="NUL:") or 
+			die "Cannot open /dev/null nor NUL:";
 		close ($null);
 		my $resp = get_case($matchp->[0],"2>$dev");
 		$resp =~ m{$weak_match_expr};

@@ -5,10 +5,12 @@
 	BEGIN{ $::INC{__PACKAGE__.".pm"} = __FILE__."#__LINE__"};
 	use 5.8.0;
 	use warnings;
-	our $VERSION='1.0.14';
+	our $VERSION='1.0.15';
 
 
-	# RCS $Revision: 1.29 $ -  $Date: 2012-03-13 21:11:04-08 $
+	# RCS $Revision: 1.30 $ -  $Date: 2012-03-15 21:01:06-08 $
+	# 1.0.15  - remove 'my $_' usage; old perl compat probs; use local
+  #           in once instance were needed local copy of $_
 	# 1.0.14  - arg! misspelled Win nul: devname(fixed)
 	# 1.0.13  - test case change only to better test print to STDERR
 	# 1.0.12  - test case change: change of OBJ->print to print OBJ to
@@ -87,15 +89,20 @@
 	my %dflts=(depth=>2, noquote=>1);
 
 	sub P(@) {    # 'safen' to string or FH or STDOUT
-		my ($_, $p);
+		my $p = $_[0];
 		my ($depth, $noquote) = ($dflts{depth}, $dflts{noquote});
-		do{ @_=@$_[0] } if ref $_[0] eq 'ARRAY';
-		if (ref $_[0] eq __PACKAGE__) {
-			$p=shift;
-			$depth=$p->{depth} if exists $p->{depth};
+    if (ref $p eq __PACKAGE__) {
+			$c = shift; $p = $_[0];
+			$depth = $c->{depth} if exists $c->{depth};
+    }
+    if (ref $p eq 'ARRAY') {  #expand first parm into list of parms
+      $p = shift;
+      @_=(@$p, @_);
+      $p=$_[0];
 		}
 		my ($fh, $f, $explicit_out);
-		if (ref $_[0] eq 'GLOB') {
+    my $rp=ref $p;
+		if ($rp eq 'GLOB' || $rp eq 'IO') {
 			($fh, $explicit_out) = (shift, 1);
 		} else { $fh =\*STDOUT }
 		my ($fc, $fmt, @flds, $res)=(1, $_[0]);
@@ -108,7 +115,7 @@
 		if ($fc) {
 			$f=shift;
 			no warnings;
-			$res =  sprintf $f,	map {my $_ = Px($_,$depth,$noquote) } @_ } 
+			$res =  sprintf $f,	map {local $_ = Px($_,$depth,$noquote) } @_ } 
 		else { $res=Px(@_)}
 		chomp $res;
 		my $ctx = defined wantarray;
@@ -144,15 +151,10 @@
 		foreach (keys %$args) {
 			unless (exists $p->{$_}) {
 				warn P "Unknown key \"%s\" passed to ops",$_;
-			} else {
-				$p->{$_}=$args->{$_};
-			}
-		}
-		$p
-	}
-
-
+			} else { $p->{$_}=$args->{$_} } }
+		$p }
 1;}
+
 {
 	package main;
   use 5.8.0;
@@ -178,31 +180,36 @@
 =encoding utf-8
 
 
-P, Pe, Pa, Pae                     Safer, friendlier sprintf/printf+say
+P, Pe                               Safer, friendlier sprintf/printf+say
 
 =head1 VERSION
 
-Version  "1.0.14"
+Version  "1.0.15"
 
 =head1 SYNOPSIS
 
-=over 
 
-=item
-S<P <FILEHANDLE, FORMAT, LIST|FORMAT, LIST|LIST> >
+  P FILEHANDLE, FORMAT, LIST
+  P FORMAT, LIST
+  P @ARRAY
+  $s=P @ARRAY; P $s;          # same output as "P @
+  Pe                          # same as P, but output to  STDERR
 
-=item
-S<Pa @ARRAY>
 
-=item
-S<Pe, Pae (same as P and Pa but ouput defaults to STDERR)>
+L<P> is a combined printf, sprintf & say in 1 routine .  It was designed
+to save on typing and undef checking when printing strings.  It saves on
+in that you don't have constantly insert or move C<newline>s (C<\n>).  
+If you change a string into a formatted string, insert P, as in:
 
-=back
+  die "Wrong number of params";
+             # to
+  die P "Expecting 2 params, got %s", scalar @ARGV;
 
-p is a combined printf, sprintf & say in 1 routine (almost).  When printed as
-strings (C<"%s">), undefs are automatically caught and C"(undef)" is
-printed in place of <CUse of uninitialized value $x in xxx at -e line z.>
-It knows how to print simple references and does so automatically. Instead
+
+When printed as
+strings (C<"%s">), undefs are automatically caught and "C<(undef)>" is
+printed in place of C<Use of uninitialized value $x in xxx at -e line z.>
+L<P> knows how to print simple references and does so automatically. Instead
 of HASH=(0x235432), at the first two¹ levels, it will print the contents
 of the hash: {none=>0, one=>1, two=>2}.  Meant for use in development and
 as debug aid.  Made executable and run, it does a small self-demo/test.
@@ -232,7 +239,7 @@ printf or sprintf would.
 
 A difference between P and sprintf, paraphrasing and contrasting the
 sprintf documentation: B<Like> C<printf>, P follows the perl design
-standard and tries to <i"Do what you mean"> when you pass it array as your
+philosophy and tries to I<"Do what you mean"> when you pass it array as your
 first argument.  The array is NOT given scalar context and instead of
 trying to use the size of the array as a format (which is almost never
 useful), it will use the first element of the array as the format
@@ -252,7 +259,7 @@ of the subroutine or function.
 While P is normally called procedurally, and not as an object, there are 
 some rare cases where you would really like it to print just 1 level
 deeper.  In such cases, to pass options to P, you need an object handle
-to it's C<ops> routine to which you can pass a c<depth> parameter.
+to it's C<ops> routine to which you can pass a C<depth> parameter.
 
 =head1 Example
 
@@ -260,154 +267,87 @@ Suppose you had an array of objects, and you wanted to see the contents
 of the objects in the array.  Normally P would only print the first level
 -- being the contents of the array:
 
-=over 4
 
-S<my %complex_probs = (                                >
-S<    questions =E<gt> [ "sqrt(-4)",  "(1-i)**2"     ],>
-S<    answers   =E<gt> [ {real =E<gt> 0, i =E<gt>2 }, >
-S<                   {real =E<gt> 0, i =E<gt> -2 } ] );>
-S<P "my probs = %s", \%complex_probs;>
+  my %complex_probs = (                                
+      questions =E<gt> [ "sqrt(-4)",  "(1-i)**2"     ],
+      answers   =E<gt> [ {real => 0, i =>2 }, 
+                     {real => 0, i => -2 } ] );
+  P "my probs = %s", \%complex_probs;
 
-=back
 
 Would normally produce:
 
-=over 4
 
-S<my probs = { questions => [ "sqrt(-4)",    "(1-i)**2" ],>
-S<             answers=E<gt>["HASH(0x235efc0)", "HASH(0x235f098)" ] } >
+  my probs = {questions=>["sqrt(-4)", "(1-i)**2"], answers=>["HASH(0x235efc0)", "HASH(0x235f098)"]} 
 
-=back
 
 When you might want to see those hashes as they are short anyway.  To
 do that you'd use the object and print with that, like this:
 
-=over 4
 
-S<my %complex_probs = (                                     >
-S<    questions => [ "sqrt(-4)",          "(1-i)**2"     ],>
-S<    answers   => [ {real => 0, i =>2 }, { real => 0, i => -2 } ] );>
-S<my $p=P::->ops({depth=>3});                                >
-S<$p-E<gt>P("my array = %s", \%complex_probs);>
+  my %complex_probs = (                                     
+      questions => [ "sqrt(-4)",          "(1-i)**2"     ],
+      answers   => [ {real => 0, i =>2 }, { real => 0, i => -2 } ] );
+  my $p=P::->ops({depth=>3});                                
+  $p->P("my array = %s", \%complex_probs);
 
-=back
 
 Which produces:
 
-=over 4
 
-S<my array = {questions=E<gt>["sqrt(-4)", "(1-i)**2"],>
-S<answers=E<gt>[{i=E<gt>2, real=E<gt>0}, {i=E<gt>-2, real=E<gt>0}]}>
+  my array = {questions=["sqrt(-4)", "(1-i)**2"], answers=>[{i=>2, real=>0}, {i=>-2, real=>0}]}
 
-=back
 
-=head1 EXAMPLES
+B<Note:>  Don't confuse L<P::P> with a Pretty Printer or Data::Dumper.  I<Especially>, when printing references, it was designed as a debug aid.
 
-=over 4
 
-=item  
-S<C<P "Hello %s", "World";        # auto NL when to a FH>>
+=head1 MORE EXAMPLES
 
-=item
-S<>
 
-=item 
-S<C<P "Hello \x83"; P "World";    # \x83: suppress auto-NL to FH's >>
+  P "Hello %s", "World";        # auto NL when to a FH
+  P "Hello \x83"; P "World";    # \x83: suppress auto-NL to FH's 
+  $s = P "%s", "Hello %s";      # not needed if printing to string 
+  P $s, "World";                # still prints "Hello World" 
 
-=item
-S<>
+  @a = ("%s", "my string");     # using array, fmt as 1st arg 
+  P @a;
 
-=item
-S<C<$s = P "%s", "Hello %s";      # not needed if printing to string >>
+  @a = ("Hello %s", "World");   # format in array[0]
+  P @a;
+  P @a;                         # prints 1st of @a elements (Hello %s)
+  P 0 + @a;                     # prints #items in 'a'
 
-=item
-S<C<P $s, "World";                # still prints "Hello World" >>
+  P "a=%s", \@a;                # prints contents of 'a': [1,2,3...]
 
-=item
-S<>
+  P STDERR, @a                  # use @a as args to a specific FH
+                                # NOTE: "," after FH 
+  Pe  "Output to STDERR"        # 'Shortcut' for P to STDERR
 
-=item 
-S<C<@a = ("%s", "my string");     # using array, fmt as 1st arg >>
+  # P Hash bucket usage + contents with hashes
+  %H=(one=>1, two=>2, u=>undef);
 
-=item 
-S<C<Pa @a;                        # use 'Pa' have @a as args to 'P'>>
+  P "%H #items %s", 0+%H;       # Show number of  items in hash
+  P "%H hash usage: %s", "".%H; # Shows used/total Hash bucket usage
+  P "%H=%s", \%H;               # Show contents of hash:
+    %H={u=>(undef), one=>1, two=>2}
 
-=item 
-S<C<@a = ("Hello %s", "World");   # format in array[0]>>
+  bless my $h=\%H, 'Hclass';    # Blessed objs... 
+  P "Obj-h = %s", $h;        #     & content:
+    Obj-h = Hclass{u=>(undef), one=>1, two=>2}
 
-=item 
-S<C<Pa @a;                        # use @a as args for P>>
-
-=item 
-S<C<P @a;                         # prints 1st of @a elements (Hello %s)>>
-
-=item
-S<>
-
-=item
-S<C<P 0 + @a;                     # prints #items in 'a'>>
-
-=item
-S<C<P "a=%s", \@a;                # prints contents of 'a': [1,2,3...]>>
-
-=item
-S<>
-
-=item 
-S<C<P STDERR, @a                  # use @a as args to a specific FH>>
-
-=item	
-S<C<                              # NOTE: "," after FH L</*STC>>>
-
-=item 
-S<C<Pe  "Output to STDERR"        # 'Shortcut' for P to STDERR>>
-
-=item
-S<>
-
-=item
-S<C<# P Hash bucket usage + contents with hashes>>
-
-=item
-S<>
-
-=over 1
-
-=item
-S<C<%H=(one=E<gt>1, two=E<gt>2, u=E<gt>(undef));>>
-
-=back
-
-=item
-S<>
-
-=item
-S<C<P "%H #items %s", 0+%H;       # - Show number of  items in hash>>
-
-=item
-S<C<P "%H hash usage: %s", "".%H; # - Shows used/total Hash bucket usage>>
-
-=item
-S<C<P "%H=%s", \%H;               # show contents of hash {x=>E<gt>S<y, ...}>>
-
-=item
-S<C<P "*this=%s", $this;          # show blessed objs. + top-lvl content>>
-
-=back
 
 =head1 NOTES
 
-Note, values given as args to a formatted print statement, are
-checked for undef and substitute "(undef)" for undefined values.
-If you print vars as numbers, this can have the side effect of causing
-runtime format errors, so best to print as strings to see 'undef'.
-S<>
+Values given as args with a format statement, are
+checked for B<undef> and have "C<(undef)>" substituted for undefined values.
+If you print vars as in decimal or floating point, they'll likely show up 
+as 0, which doesn't stand out as well as "C<(undef)>",
+
 While usable in any code, it's use was designed to save typing, time
 and work of undef checking, newline handling, and doing the right
-thing with given input.  It may not be suitable where speed is
+thing with the given input.  It may not be suitable where speed is
 important.
-S<>
-S<>
+
 =cut
 #}}}1
 

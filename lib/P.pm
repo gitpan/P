@@ -5,10 +5,11 @@
 	BEGIN{ $::INC{__PACKAGE__.".pm"} = __FILE__."#__LINE__"};
 	use 5.8.0;
 	use warnings;
-	our $VERSION='1.0.16';
+	our $VERSION='1.0.17';
 
 
 	# RCS $Revision: 1.31 $ -  $Date: 2012-03-16 18:12:22-08 $
+	# 1.0.17  - another try at fixing pod decoding on metacpan
 	# 1.0.16  - pod '=encoding' move to before '=head' 
 	#           (ref:https://github.com/CPAN-API/metacpan-web/issues/800 )
 	# 1.0.15  - remove 'my $_' usage; old perl compat probs; use local
@@ -181,11 +182,11 @@
 
 =head1 NAME
 
-P, Pe                               Safer, friendlier sprintf/printf+say
+P, Pe - Safer, friendlier sprintf/printf+say
 
 =head1 VERSION
 
-Version  "1.0.16"
+Version  "1.0.17"
 
 =head1 SYNOPSIS
 

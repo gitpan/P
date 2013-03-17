@@ -5,10 +5,12 @@
 	BEGIN{ $::INC{__PACKAGE__.".pm"} = __FILE__."#__LINE__"};
 	use 5.8.0;
 	use warnings;
-	our $VERSION='1.0.15';
+	our $VERSION='1.0.16';
 
 
-	# RCS $Revision: 1.30 $ -  $Date: 2012-03-15 21:01:06-08 $
+	# RCS $Revision: 1.31 $ -  $Date: 2012-03-16 18:12:22-08 $
+	# 1.0.16  - pod '=encoding' move to before '=head' 
+	#           (ref:https://github.com/CPAN-API/metacpan-web/issues/800 )
 	# 1.0.15  - remove 'my $_' usage; old perl compat probs; use local
   #           in once instance were needed local copy of $_
 	# 1.0.14  - arg! misspelled Win nul: devname(fixed)
@@ -175,16 +177,15 @@
 #							Pod documentation						{{{1
 #    use P;
 
-=head1 NAME
-
 =encoding utf-8
 
+=head1 NAME
 
 P, Pe                               Safer, friendlier sprintf/printf+say
 
 =head1 VERSION
 
-Version  "1.0.15"
+Version  "1.0.16"
 
 =head1 SYNOPSIS
 

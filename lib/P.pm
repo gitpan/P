@@ -5,10 +5,18 @@
 	BEGIN{ $::INC{__PACKAGE__.".pm"} = __FILE__."#__LINE__"};
 	use 5.8.0;
 	use warnings;
-	our $VERSION='1.0.17';
+	our $VERSION='1.0.18';
 
 
-	# RCS $Revision: 1.31 $ -  $Date: 2012-03-16 18:12:22-08 $
+	# RCS $Revision: 1.33 $ -  $Date: 2013-03-18 00:25:24-07 $
+	# 1.0.18  - convert top format-case statement to load-time compile
+	#           and see if that helps BSD errors;
+	#         - change test case w/array to use P & not old Pa-form
+	#         - change test case to print to STDERR to use Pe
+	#         - fix bug in decrement of $lvl in conditional (decrement must
+	#           be in first part of conditional)
+	#         - TODO: fix adaptation of 'rev' test case to work w/o 
+	#           separate file
 	# 1.0.17  - another try at fixing pod decoding on metacpan
 	# 1.0.16  - pod '=encoding' move to before '=head' 
 	#           (ref:https://github.com/CPAN-API/metacpan-web/issues/800 )
@@ -59,18 +67,21 @@
 	BEGIN {@EXPORT=qw(P Pa Pe Pae), @ISA=qw(Exporter) };
 	use Exporter;
 
-	my $given = [[ '$p =~ /^[-+]?\d+$/',				q{%s}			],
-								[ '$ro',	 										q{%s}			],
-								[ '1==length $p',							q{'%s'}		],
-								[ '$p =~ /^[+-]?\d*\.\d*$/',	q{%.2f}		],
-								[ 1, 													q{"%s"}		]	];
 	sub Px { my $p = shift;
 		my $lvl = scalar @_ ? $_[0] : 2;
 		my $ro = scalar @_>1 ? $_[1]:0;
 		return "(undef)" unless defined $p;
 		my $ref = ref $p;
-		if (!$ref || 1 >$lvl--) {
-			sprintf &{sub(){eval $_->[0] && return $_->[1] for @$given }}, $p;
+		if (1 > $lvl-- || !$ref) {
+			my $fmt;
+			my $given = [	sub ($$) { $_[0] =~ /^[-+]?\d+$/			&& q{%s}	},
+										sub ($$) { $_[1] 											&& q{%s}	},
+										sub ($$) { 1==length($_[0]) 					&& q{'%s'}},
+										sub ($$) { $_[0] =~ /^[+-]?\d*\.\d*$/ && q{%.2f}},
+										sub ($$) { 1													&& q{"%s"}} ];
+
+			do { $fmt=$_->($p, $ro) and last } for @$given;
+			sprintf $fmt, $p;
 		} else { 
 			my $pkg='';
 			($pkg, $ref)=($1, $2) if 0<= (index $p,'=') && $p=~m{([\w:]+)=(\w+)}; 
@@ -182,11 +193,11 @@
 
 =head1 NAME
 
-P, Pe - Safer, friendlier sprintf/printf+say
+P, Pe   -   Safer, friendlier sprintf/printf+say
 
 =head1 VERSION
 
-Version  "1.0.17"
+Version  "1.0.18"
 
 =head1 SYNOPSIS
 
@@ -396,14 +407,14 @@ case "w/string" &&
 
 case "passed array" && do {
   my @msg = ("%s", &iter ); 
-  Pa @msg;                           		# case 3 (hack around perlbug)
+  P  @msg;                              # case 3 -- being passed Array
 };
 
 case "w/fmt+string" &&
   P "%s",iter;                       		# case 4
 
 case "to STDERR" &&
-  P \*STDERR, iter;                  		# case 5 #needs redirection to see
+  Pe iter;                           		# case 5 #needs redirection to see
 
 our $str;
 
@@ -419,8 +430,8 @@ case "p thru '/.../rev' fr/FH" && do {	# case 8 - P 'pipe'
   my $fh;
 	my $cmd = "echo -n \"(echo) ${\(+iter)}\" |perl t/rev";
   open $fh, "$cmd |" or 
-    die p(\*STDERR, "Problem opening 'rev' util ($!),".
-                     " got PATH?(skipping)\n\n", 1); 
+    die P \*STDERR, "Problem opening 'rev' util ($!),".
+                     " got PATH?(skipping)\n\n", 1; 
     P \*STDOUT, "%s", $fh;
 };
 

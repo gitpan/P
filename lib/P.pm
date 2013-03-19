@@ -5,10 +5,17 @@
 	BEGIN{ $::INC{__PACKAGE__.".pm"} = __FILE__."#__LINE__"};
 	use 5.8.0;
 	use warnings;
-	our $VERSION='1.0.18';
+	our $VERSION='1.0.19';
 
 
-	# RCS $Revision: 1.33 $ -  $Date: 2013-03-18 00:25:24-07 $
+	# RCS $Revision: 1.34 $ -  $Date: 2013-03-19 12:57:54-07 $
+	# 1.0.19  - Regretting fancy thru 'rev' P direct from FH test case (a bit)
+	#           **seems** like some people don't have "." in path for test 
+	#           cases, so running "t/prog" doesn't work, trying "./t/prog"
+  #           (1 fail on a Win32 base on a x64 system...so tempted
+	#           to just ignore it...) >;^); guess will up this for now
+	#           and think about that test case some more...
+	#           I'm so gonna rewrite that case! (see TODO below)
 	# 1.0.18  - convert top format-case statement to load-time compile
 	#           and see if that helps BSD errors;
 	#         - change test case w/array to use P & not old Pa-form
@@ -197,7 +204,7 @@ P, Pe   -   Safer, friendlier sprintf/printf+say
 
 =head1 VERSION
 
-Version  "1.0.18"
+Version  "1.0.19"
 
 =head1 SYNOPSIS
 
@@ -428,7 +435,7 @@ case "prev string" &&										# case 7 - print embedded P output
 
 case "p thru '/.../rev' fr/FH" && do {	# case 8 - P 'pipe'
   my $fh;
-	my $cmd = "echo -n \"(echo) ${\(+iter)}\" |perl t/rev";
+	my $cmd = "echo -n \"(echo) ${\(+iter)}\" |perl ./t/rev";
   open $fh, "$cmd |" or 
     die P \*STDERR, "Problem opening 'rev' util ($!),".
                      " got PATH?(skipping)\n\n", 1; 

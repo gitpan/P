@@ -5,25 +5,29 @@
 	BEGIN{ $::INC{__PACKAGE__.".pm"} = __FILE__."#__LINE__"};
 	use 5.8.0;
 	use warnings;
-	our $VERSION='1.0.19';
+	our $VERSION='1.0.20';
 
 
-	# RCS $Revision: 1.34 $ -  $Date: 2013-03-19 12:57:54-07 $
+	# RCS $Revision: 1.35 $ -  $Date: 2013-03-19 19:35:53-07 $
+	# 1.0.20	- Rewrite of testcase 5 in self-execution; no external progs
+	#           anymore: use fork and print from P in perl child, then
+	#           print from FH in parent, including uses of \x83 to
+	#           inhibit extra LF's;
 	# 1.0.19  - Regretting fancy thru 'rev' P direct from FH test case (a bit)
 	#           **seems** like some people don't have "." in path for test 
 	#           cases, so running "t/prog" doesn't work, trying "./t/prog"
   #           (1 fail on a Win32 base on a x64 system...so tempted
 	#           to just ignore it...) >;^); guess will up this for now
 	#           and think about that test case some more...
-	#           I'm so gonna rewrite that case! (see TODO below)
+	#           I'm so gonna rewrite that case! (see xtodox below)
 	# 1.0.18  - convert top format-case statement to load-time compile
 	#           and see if that helps BSD errors;
 	#         - change test case w/array to use P & not old Pa-form
 	#         - change test case to print to STDERR to use Pe
 	#         - fix bug in decrement of $lvl in conditional (decrement must
 	#           be in first part of conditional)
-	#         - TODO: fix adaptation of 'rev' test case to work w/o 
-	#           separate file
+	#         - xtodox fix adaptation of 'rev' test case to work w/o 
+	#           separate file(done)
 	# 1.0.17  - another try at fixing pod decoding on metacpan
 	# 1.0.16  - pod '=encoding' move to before '=head' 
 	#           (ref:https://github.com/CPAN-API/metacpan-web/issues/800 )
@@ -204,7 +208,7 @@ P, Pe   -   Safer, friendlier sprintf/printf+say
 
 =head1 VERSION
 
-Version  "1.0.19"
+Version  "1.0.20"
 
 =head1 SYNOPSIS
 
@@ -430,18 +434,52 @@ case "to strng embedded in #7" && do {	# case 6 to string; prints in case 7
   P "";
 };
 
+sub timed_read($$) {
+	my ($fh, $timeout)= @_;
+	my $result;
+	eval {
+		local $SIG{ALRM} = sub {die P "timeout"};
+		alarm $timeout;
+		$result=<$fh>; 
+		alarm 0;
+	};
+	return $result unless $@;
+	die P "unexpected error in read: $@" unless $@ eq "timeout";
+	$result="timeout";
+}
+
+sub rev{ 1 >= length $_[0] ?	$_[0] : 
+							substr( $_[0], -1) .  rev(substr $_[0], 0, -1) } 
+
 case "prev string" &&										# case 7 - print embedded P output
   P "prev str=\"%s\" (no LF) && ${\(+iter())}", $str;
 
 case "p thru '/.../rev' fr/FH" && do {	# case 8 - P 'pipe'
-  my $fh;
-	my $cmd = "echo -n \"(echo) ${\(+iter)}\" |perl ./t/rev";
-  open $fh, "$cmd |" or 
-    die P \*STDERR, "Problem opening 'rev' util ($!),".
-                     " got PATH?(skipping)\n\n", 1; 
-    P \*STDOUT, "%s", $fh;
+#we suffer! for this testcase... convert to not using external shell
+#but perl->perl reads through FH
+	my ($childin, $childout, $parentin, $parentout);
+	pipe $childin,$parentout;
+	pipe $parentin,$childout;
+	my ($pid, $result);
+	if ($pid=fork()) {					#parent
+		close $childin; close $childout;
+		P $parentout, &iter;
+		close $parentout;
+		P "%s", $parentin;
+	} elsif (defined($pid) && $pid==0) {  #child
+		close $parentin; close $parentout;
+		my $read;
+		chomp( $read=timed_read($childin,10));
+		chop $read;
+		P $childout, "%s\x83", rev($read);
+		close $childin or die "closing childin: $@"; 
+		close $childout or die "closing childout: $@";
+		exit(0);
+	} else {
+		die "Could not fork: system failure $!";
+	}
 };
-
+			
 
 case "P && array ref"  && do {
   my @ar=qw(one two three 4 5 6);

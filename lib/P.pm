@@ -3,12 +3,68 @@
 { package P;
 	# next line needed for P.pm to be runnable & pass it's tests
 	BEGIN{ $::INC{__PACKAGE__.".pm"} = __FILE__."#__LINE__"};
-	use 5.8.0;
+	use 5.10.0;
 	use warnings;
-	our $VERSION='1.0.20';
+	our $VERSION='1.1.0';
+	use utf8;
+# vim=:SetNumberAndWidth
 
-
-	# RCS $Revision: 1.35 $ -  $Date: 2013-03-19 19:35:53-07 $
+	# RCS $Revision: 1.38 $ -  $Date: 2013-09-30 18:47:44-07 $
+	# 1.1.0		- Fixed Internal bug#001, below & embedded \n@end of int. str
+	# 					(rt#89064)
+	# 1.0.32	- Fix double nest test case @{[\*STDERR, ["fmt:%s", "string"]]}
+	# 					(rt#89056)
+	# 					only use sprintf's numeric formats (e.g. %d, %f...) on
+	# 					numbers supported by sprintf (for now only arabic numerals).
+	# 					Otherwise print as string. (rt#89063)
+	# 					its numeric formats (ex "%d", "%f"...)
+	# 1.0.31	- Fix check for previously printed items to apply only to
+	# 				- the current output statement;
+	# 1.0.30  - Fix LF suppression -- instead of suppressing EOL, suppressed
+	# 					all output in the case where no FD was specified (code was
+	# 					confused in deciding whether or not to suppress output and 
+	# 					return it as a string. (rt#89058)
+	# 				- Add missing quote in Synopsis (rt#89047)
+	# 				- Change NAME section to reference module following CPAN
+	# 				  standard to re-list name of module instead of functions
+	# 				  (rt#89046)
+	# 				- Fix L<> in POD that referenced "module" P::P instead of name, "P"
+	# 				  (forms bad link in HTML) (rt#89051)
+	# 				- Since ($;@) prototypes cause more problems than (@), clean p
+	# 				  proto's to use '@'; impliciation->remove array variations
+	# 				  (rt@89052, #89055) (rt#89058)
+	# 				- fix outdated and inconsistent doc examples regarding old protos
+	#						(rt#89056)(rt#89058)
+	#						Had broken P's object oriented flag passing in adding 
+	#						the 'seen' function (to prevent recursive outptut.  Fixed this
+	#						while testing that main::DATA is properly closed (rt#89057,#89067)
+	#					- Internal Bug #001
+	#							#our @a = ("Hello %s", "World");
+	#							#P(\*STDERR, \@a);       
+	#							#		prints-> ARRAY(0x1003b40)
+	# 1.0.29	- Convert to using 'There does not exist' sign (∄), U+2204
+	# 					instead of (undef);  use  '🔁 ' for recursion/repeat;
+	# 					U+1F500
+	# 1.0.28	- When doing explicit out (FH specified), be sure to end
+	# 					with newln. 
+	# 1.0.27  - DEFAULT change - don't do implicit IO reads (change via 
+	# 						impicit_io option)
+	#           - not usually needed in debugging or most output;
+	#           could cause problems
+	#           reading data from a file and causing desychronization problems; 
+	# 1.0.26	- detect recursive data structs and don't expand them
+	# 1.0.25	- Add expansion for 'REF'; 
+	# 				- WIP: Trying to incorporate enumeration of duplicate adjacent 
+	# 					data: Work In Progress: status: disabled
+	# 1.0.24	- limit default max string expanded to 140 chars (maybe want to
+	# 					do this only in brace expansions?)  Method to change in OOO
+	# 					not documented at this time. NOTE: limiting output by default
+	# 					is not a great idea.
+	# 1.0.23	- When printing contents of a hash, print non-refs before 
+	# 					refs, and print each subset in alpha sorted order
+  # 1.0.22  - Switch to {…} instead of HASH(0x12356892) or 
+	# 										[…] for arrays
+  # 1.0.21  - Doc change: added example of use in "die".
 	# 1.0.20	- Rewrite of testcase 5 in self-execution; no external progs
 	#           anymore: use fork and print from P in perl child, then
 	#           print from FH in parent, including uses of \x83 to
@@ -75,124 +131,218 @@
 	#
 	# 1.0.1 	- add 0xa0 (non breaking space) to suppress NL
 	our (@ISA, @EXPORT);
-	BEGIN {@EXPORT=qw(P Pa Pe Pae), @ISA=qw(Exporter) };
-	use Exporter;
+	{ no warnings "once";
+		*IO::Handle::P = P::P; *IO::Handle::Pe = P::P }
+	our ($types_available, @TYPES);
+		
+	##NOTE: the types-code is here from yet-to-be published helper mod
+	#       include minimal necessary bits to make things work
+	#
+	BEGIN {@EXPORT=qw(P Pe), @ISA=qw(Exporter); 
 
-	sub Px { my $p = shift;
-		my $lvl = scalar @_ ? $_[0] : 2;
-		my $ro = scalar @_>1 ? $_[1]:0;
-		return "(undef)" unless defined $p;
-		my $ref = ref $p;
-		if (1 > $lvl-- || !$ref) {
-			my $fmt;
-			my $given = [	sub ($$) { $_[0] =~ /^[-+]?\d+$/			&& q{%s}	},
-										sub ($$) { $_[1] 											&& q{%s}	},
-										sub ($$) { 1==length($_[0]) 					&& q{'%s'}},
-										sub ($$) { $_[0] =~ /^[+-]?\d*\.\d*$/ && q{%.2f}},
-										sub ($$) { 1													&& q{"%s"}} ];
+			eval {require  Types; Types->import()};
+	 $types_available=!$@;
 
-			do { $fmt=$_->($p, $ro) and last } for @$given;
-			sprintf $fmt, $p;
-		} else { 
-			my $pkg='';
-			($pkg, $ref)=($1, $2) if 0<= (index $p,'=') && $p=~m{([\w:]+)=(\w+)}; 
-			my %actions = ( 
-				GLOB	=>	\&{sub(){'<*='.<$p>.'>'}},
-				IO		=>	\&{sub(){ '<='.<$p>.'>'}},
-				SCALAR=>	\&{sub(){ $pkg.'\\' . Px($$_, $lvl).' ' }},
-				ARRAY	=>	\&{sub(){ $pkg."[". 
-													(join ', ', map{ Px($_, $lvl) } @$p ) ."]" }},
-				HASH	=>	\&{sub(){ $pkg.'{' . ( join ', ', @{[
-											map { Px($_, $lvl, 1) .  '=>'. Px($p->{$_}, $lvl,0) } 
-											keys %$p]} ) . '}' }},);
-			if (my $act=$actions{$ref}) { &$act } 
-			else { "$p" }
+		use mem(@TYPES=qw(ARRAY CODE GLOB HASH IO REF SCALAR));
+		eval '# line ' . __LINE__ .' '. __FILE__ .' 
+			
+		sub _isatype($$) {
+			my ($var, $type) = @_;
+			ref $var && (1+index($var, $type)) ? 1 : 0;
+		}';
+		$@ && die "_isatype eval(2): $@";
+		unless ($types_available) {
+			eval '# line ' . __LINE__ .' '. __FILE__ .'
+							sub ' . $_ . ' (;*) {	state $t;
+								unless ($t) { my $c03 = (caller 0)[3]; $t = 1+index $c03, ":";
+									$t && ++$t;	
+									$t=substr $c03, $t }
+								my $p = $_[0];
+								return @_ ? _isatype($p, $t) : $t } ' for @TYPES;
 		}
 	}
 
-	use constant NBH => 0x83;
-	my %dflts=(depth=>2, noquote=>1);
+	use Exporter;
+	our %dflts;
+	use mem(%dflts=(implicit_io=>0, depth=>3, noquote=>1, maxstring=>undef));
+
+	use constant EXPERIMENTAL=>0;	
+
+	BEGIN { if (EXPERIMENTAL) {				#{{{
+		sub rm_adjacent {
+			my $c = 1;
+			($a, $c) = @$a if ref $a;
+			$b //= "∄";
+			if ($a ne $b) { $c > 1 ? "$a × $c" : $a , $b } 
+			else { (undef, [$a, ++$c]) }
+		}
+		sub reduce(&@) {
+			my (@final, $i) =((), 0);
+			my ($f, $ar)=@_;
+			for (my $i=0; $i <  $#$ar; ++$i ) {
+				($a, $b) = ($ar->[$i], $ar->[$i+1]);
+				my @r = &$f;
+				push @final, $r[0] if $r[0];
+				$ar->[$i+1] = $r[1];
+			}
+			@final;
+		}
+	} }															#}}}
+
+	use constant {UTF8lead => 0xc2, NoBrHr => 0x83, BkSlsh => 0x5c};
+
+	sub Px { my $p=shift; my $v = shift;
+		if (ref $v) {
+			if ($p->{__P_seen}{$v}) { return "*🔁 :".$v."*" }
+			else {$p->{__P_seen}{$v}=1}
+		}
+		my $lvl = scalar @_ ? $_[0] : 2;
+		my $ro = scalar @_>1 ? $_[1]:0;
+		return "∄" unless defined $v;
+		my $ref = ref $v;
+		if (1 > $lvl-- || !$ref) {
+			my $fmt;			# prototypes are documentary (rt#89053)
+			my $given = [	sub ($$) { $_[0] =~ /^[-+]?[0-9]+\.?\z/			&& q{%s}	},
+										sub ($$) { $_[1] 														&& qq{%s}},
+										sub ($$) { 1==length($_[0]) 								&& q{'%s'}},
+										sub ($$) { $_[0] =~ 
+											/^[+-]?(?:\.[0-9]+)|(?:[0-9]+\.[0-9]+)\z/ && q{%.2f}},
+										sub ($$) { substr($_[0],0,4) eq HASH				&& q({…})},
+										sub ($$) { substr($_[0],0,5) eq ARRAY				&& q([…])},
+										#	sub ($$) { $mxstr && length ($_[0])>$mxstr 
+										#						&& qq("%.${mxstr}s")},
+										sub ($$) { 1																&& q{"%s"}} ];
+
+			do { $fmt = $_->($v, $ro) and last } for @$given;
+			return sprintf $fmt, $v;
+		} else { 
+			my $pkg = '';
+			($pkg, $ref) = ($1, $2) if 0 <= (index $v,'=') && $v=~m{([\w:]+)=(\w+)}; 
+			local * nonrefs_b4_refs ;
+			* nonrefs_b4_refs = sub {
+				ref $v->{$a} cmp ref $v->{$b}  || $a cmp $b 
+			};
+
+			local ($IO_glob, $NIO_glob, $IO_io, $NIO_io) = (
+						sub(){'<*'.<$v>.'>'}, sub(){'<*='.$p->Px($v, $lvl-1).'>'},
+						sub(){'<='.<$v>.'>'}, sub(){'<|'.$p->Px($v, $lvl-1).'|>'},
+					);
+
+			my %actions = ( 
+				GLOB	=>	$p->{implicit_io}? $IO_glob:$NIO_glob,
+				IO		=>	$p->{implicit_io}? $IO_io:$NIO_io,
+				REF		=>	sub(){ "\\" . $p->Px($$_, $lvl-1) . ' '},
+				SCALAR=>	sub(){ $pkg.'\\' . $p->Px($$_, $lvl).' ' },
+				ARRAY	=>	sub(){ $pkg."[". 
+												(join ', ', 
+#	not working: why?			#reduce \&rm_adjacent, (commented out)
+												map{ $p->Px($_, $lvl) } @$v ) ."]" },
+				HASH	=>	sub(){ $pkg.'{' . ( join ', ', @{[
+										map {$p->Px($_, $lvl, 1) . '=>'. $p->Px($v->{$_}, $lvl,0)} 
+										sort  nonrefs_b4_refs keys %$v]} ) . '}' },);
+			if (my $act=$actions{$ref}) { &$act } 
+			else { return "$v" }
+		}
+	}
+
+	BEGIN{ if (0) {		# unused
+		sub hex_str($) {
+			my ($offset, @ar) = (0,split //, shift);
+			printf "%02x%s", ord ($ar[$offset]), 
+												++$offset%8 ? " ":"\n"  while $offset < @ar;
+			print "\n" unless $offset%8;
+		}
+	}}
 
 	sub P(@) {    # 'safen' to string or FH or STDOUT
-		my $p = $_[0];
+		my $p=ref $_[0] eq 'P' ? shift: bless {};
+		$p->{__P_seen}={} unless ref $p->{__P_seen};
+
+		local * unsee_ret  = sub ($) { 
+			delete $p->{__P_seen} if exists $p->{__P_seen}; 
+			$_[0] };
+
+		my $v = $_[0];
+    my $rv = ref $v;
 		my ($depth, $noquote) = ($dflts{depth}, $dflts{noquote});
-    if (ref $p eq __PACKAGE__) {
-			$c = shift; $p = $_[0];
-			$depth = $c->{depth} if exists $c->{depth};
+    if (HASH eq $rv) {
+			my $params = $v; $v = shift; $rv = ref $v;
+			$depth = $params->{depth} if exists $params->{depth};
     }
-    if (ref $p eq 'ARRAY') {  #expand first parm into list of parms
-      $p = shift;
-      @_=(@$p, @_);
-      $p=$_[0];
-		}
+    if (ARRAY eq $rv ) { $v = shift;
+      @_=(@$v, @_); $v=$_[0]; $rv = ref $v }
+
 		my ($fh, $f, $explicit_out);
-    my $rp=ref $p;
-		if ($rp eq 'GLOB' || $rp eq 'IO') {
+		if ($rv eq GLOB || $rv eq IO) {
 			($fh, $explicit_out) = (shift, 1);
+			$v = $_[0]; $rv = ref $v;
 		} else { $fh =\*STDOUT }
+    
+		if (ARRAY eq $rv ) { $v = shift;
+      @_=(@$v, @_); $v=$_[0]; $rv = ref $v }
+    
 		my ($fc, $fmt, @flds, $res)=(1, $_[0]);
-#		if ($fmt) {
-#			if ((index $fmt, '%')>-1) {
-#				@flds=split /(?<!%)%(?!%)/, $fmt;
-#				$fc=scalar @flds;
-#			}
-#		}
-		if ($fc) {
-			$f=shift;
-			no warnings;
-			$res =  sprintf $f,	map {local $_ = Px($_,$depth,$noquote) } @_ } 
-		else { $res=Px(@_)}
+		if ($fc) { $f = shift; no warnings;
+			$res =  sprintf $f,	map {local $_ = $p->Px($_,$depth,$noquote) } @_ } 
+		else { $res = $p->Px(@_)}
+
 		chomp $res;
-		my $ctx = defined wantarray;
-    {use bytes; #pretend we know what we are doing... ;-)
-		if ((ord substr $res,-1) eq NBH) {                 #"NO_BREAK_HERE"
-      my $w=0; $w=1 if (ord substr $res, -2,1) eq 0xC2; #UTF-8 encoded?
-			$res=substr $res,0,-($w+1)+length $res ;
-			$ctx=1;
-		}};
+
+		my ($nl, $ctx) = ("\n", defined wantarray ? 1 : 0);
+
+		($res, $nl, $ctx) = (substr($res, 0, -1 + length $res), "", 2) if
+					ord(substr $res,-1) == NoBrHr;									#"NO_BREAK_HERE"
+
 		if (!$fh && !$ctx) {	#internal consistancy check
-			$fh = \*STDERR and P $fh 
-	 						"Invalid File Handle presented for output, using STDERR:";
-			$explicit_out=1;
-		} else { return $res if (!$explicit_out and $ctx) }
-		print $fh ($res . (!$ctx ? "\n" : "")  );
+			($fh = \*STDERR) and 
+				P $fh "Invalid File Handle presented for output, using STDERR";
+			($explicit_out, $nl) = (1, "\n") }
+
+		else { return unsee_ret($res) if (!$explicit_out and $ctx==1) }
+
+		print $fh ($res . (!$ctx && (!$\ || $\ ne "\n") ? "\n" : "")  );
+		unsee_ret($res);
 	};
-	sub Pa(@) {goto &P};
-	sub Pe($;@) {
-		return unless scalar @_;
+
+	sub Pe(@) {
+		my $p = shift if ref $_[0];
+		return '' unless @_;
 		unshift @_, \*STDERR;
+		unshift @_, $p if ref $p;
 		goto &P 
-	};
-	sub Pea(@) {goto &Pe};
-	sub Pae(@) {goto &Pe};
+	}
+
 
 
 	sub ops($) {
 		my $p = shift; my $c=ref $p || $p;
 		bless $p = {}, $c unless ref $p;
 		my $args = $_[0];
-		$p->{$_}=$dflts{$_} for keys %dflts;
-		die "ops takes a hash to pass arguments" unless ref $args eq 'HASH';
-		foreach (keys %$args) {
-			unless (exists $p->{$_}) {
-				warn P "Unknown key \"%s\" passed to ops",$_;
-			} else { $p->{$_}=$args->{$_} } }
+		$p->{$_}=$dflts{$_} for sort keys %dflts;
+		die "ops takes a hash to pass arguments" unless HASH $args;
+		foreach (sort keys %$args) {
+			if (exists $p->{$_}) { $p->{$_}=$args->{$_} } 
+			else { 
+				warn  "Unknown key \"$_\" passed to ops";} 
+		}
 		$p }
-1;}
+1;}		#value 1 placed at as w/most of my end-of-packages (rt#89054)
 
 {
 	package main;
   use 5.8.0;
 	use utf8;
 
-	(caller 0)[0] || do {
-    $_=do{ $/=undef, <main::DATA>};
-		close main::DATA;
+	unless ((caller 0)[0]) {
+    $_=do{ $/=undef, <P::DATA>};
+		close P::DATA;
 		our @globals;
 		eval $_;
     die "self-test failed: $@" if $@;
 		1;
-	};
+	} else {
+		close P::DATA;
+	}
 1;
 }
 
@@ -204,11 +354,11 @@
 
 =head1 NAME
 
-P, Pe   -   Safer, friendlier sprintf/printf+say
+P  -   Safer, friendlier sprintf/printf+say
 
 =head1 VERSION
 
-Version  "1.0.20"
+Version  "1.1.0"
 
 =head1 SYNOPSIS
 
@@ -216,11 +366,11 @@ Version  "1.0.20"
   P FILEHANDLE, FORMAT, LIST
   P FORMAT, LIST
   P @ARRAY
-  $s=P @ARRAY; P $s;          # same output as "P @
+  $s=P @ARRAY; P $s;          # same output as "P @ARRAY" 
   Pe                          # same as P, but output to  STDERR
 
 
-L<P> is a combined printf, sprintf & say in 1 routine .  It was designed
+C<P> is a combined printf, sprintf & say in 1 routine .  It was designed
 to save on typing and undef checking when printing strings.  It saves on
 in that you don't have constantly insert or move C<newline>s (C<\n>).  
 If you change a string into a formatted string, insert P, as in:
@@ -231,78 +381,70 @@ If you change a string into a formatted string, insert P, as in:
 
 
 When printed as
-strings (C<"%s">), undefs are automatically caught and "C<(undef)>" is
-printed in place of C<Use of uninitialized value $x in xxx at -e line z.>
-L<P> knows how to print simple references and does so automatically. Instead
-of HASH=(0x235432), at the first two¹ levels, it will print the contents
-of the hash: {none=>0, one=>1, two=>2}.  Meant for use in development and
-as debug aid.  Made executable and run, it does a small self-demo/test.
-Pod-documentation also builtin. 
+strings (C<"%s">), undefs are automatically caught and "E<0x2204>", (U+2204 - 
+meaning "I<There does not exist>") is
+printed in place of "C<Use of uninitialized value $x in xxx at -e line z.>"
 
-¹-two was chosen so that the first level of the interior of an object
-could be printed, as the first reference is to the object itself.
+By default C<P>, prints the content of references (instead HASH 
+(or ARRAY)=(0x12345678), three levels deep.  Deeper nesting is replaced
+by the unicode ellipsis character (U+2026).
 
 =head1 DESCRIPTION
 
-While designed to speed up and simplify development, isn't limited to such.
+While designed for development use, it is useful in many more situations, as 
+tries to "do the right thing" based on context.  It can usually be used
+as a drop-in replacement the perl functions C<print>, C<printf>, C<sprintf>,
+and, C<say>.  
 
-It automatically handles newlines at the end of output, letting the user 
-ignore an LF at the end of a line (present or not).  
+P tries to smartly handle newlines at the end of the line -- adding them 
+or subtracting them based on if they are going to a file handle or to another
+variable.
 
-The auto-newline feature at the end of a line can be supressed by adding
-the Unicode control char "Don't break here" (0x83) at the end of a string,
-but be warned, in normal ourput, lines are line buffered and the I/O
-system  won't flush the output until it sees the end-of-line.
+The newline handling at the end of a line can be supressed by adding
+the Unicode control char "Don't break here" (0x83) at the end of a string.
 
-Blessed objects, by default,  are printed with a short label at the front.
-This means the output is NOT, at this time, by default, valid perl
-code.  Compactness takes precidence over language semantics.  Note that
-these default when printing objects via C<"%s">.  Printing something other
-than a reference will print (or format) the object the same way that
-printf or sprintf would.
+Blessed objects, by default,  are printed with the Class name in front of the
+reference.   Note that these substitutions are performed only with 
+references printed through a string (C<"%s">) format -- features designed
+to give useful output in development or debug situations.
 
-A difference between P and sprintf, paraphrasing and contrasting the
-sprintf documentation: B<Like> C<printf>, P follows the perl design
-philosophy and tries to I<"Do what you mean"> when you pass it array as your
-first argument.  The array is NOT given scalar context and instead of
-trying to use the size of the array as a format (which is almost never
-useful), it will use the first element of the array as the format
-specification by which to format the rest of the arguments.  This is the
-same behavior of C<printf> and fixes a wart in the language.  It also,
-can automatically be used as a replacement for "say", as it auto-appends
-the needed LineFeed at the end of line.  It will NOT append a line
-feed to the formatted output if it is assigned to a variable.
+One minor difference between C<P> and C<sprintf>': P takes the same
+list format as C<printf>.  P does not implement the sprintf's design flaw
+in forcing an array argument into scalar context, which is described in
+the perl documentation as something that is almost never useful.
 
-B<NOTE:> this has the, sometimes, surprising effect of silencing C<P> when
-you might not expect it: if it is the last statement in a subroutine,
-P will assume that you want to return the formatted string as the value
-of the subroutine or function.  
+B<NOTE:> A side effect of P being a contextual replacement for sprintf,
+is if it is used as the last line of a subroutine.  By default, this
+won't print it's arguments to STDOUT, but acts as sprintf in returning
+the formatted string to the caller.
 
-=head1 Experimental Feature
+=head1 Experimental Features
 
 While P is normally called procedurally, and not as an object, there are 
-some rare cases where you would really like it to print just 1 level
-deeper.  In such cases, to pass options to P, you need an object handle
-to it's C<ops> routine to which you can pass a C<depth> parameter.
+some rare cases where you would really like it to print "just 1 level
+deeper".  To do that, you need to get a pointer to P's C<options>. 
+
+To get that pointer, call P::->ops({key=>value}) to set C<P>'s options and
+save the return value.  Use that as a class-pointer to call P.  See
+following example.
 
 =head1 Example
 
 Suppose you had an array of objects, and you wanted to see the contents
-of the objects in the array.  Normally P would only print the first level
--- being the contents of the array:
+of the objects in the array.  Normally P would only print the first two levels:
 
 
   my %complex_probs = (                                
       questions =E<gt> [ "sqrt(-4)",  "(1-i)**2"     ],
       answers   =E<gt> [ {real => 0, i =>2 }, 
                      {real => 0, i => -2 } ] );
-  P "my probs = %s", \%complex_probs;
+	my $prob_ref = \%complex_problems;
+  P "my probs = %s", [$prob_ref];
 
 
 Would normally produce:
 
-
-  my probs = {questions=>["sqrt(-4)", "(1-i)**2"], answers=>["HASH(0x235efc0)", "HASH(0x235f098)"]} 
+  my probs = [{answers=>[{…}, {…}], questions=>["sqrt(-4)", "(1-i)**2"]}]
 
 
 When you might want to see those hashes as they are short anyway.  To
@@ -312,76 +454,118 @@ do that you'd use the object and print with that, like this:
   my %complex_probs = (                                     
       questions => [ "sqrt(-4)",          "(1-i)**2"     ],
       answers   => [ {real => 0, i =>2 }, { real => 0, i => -2 } ] );
-  my $p=P::->ops({depth=>3});                                
+  my $p=P::->ops({depth=>4});                                
   $p->P("my array = %s", \%complex_probs);
 
 
 Which produces:
+  
+  my probs = [{answers=>[{i=>2, real=>0}, {i=>-2, real=>0}],  # extra "\n" 
+	             questions=>["sqrt(-4)", "(1-i)**2"]}]
+
+B<Note:>  Don't confuse C<P> with a Pretty Printer or Data::Dumper.  I<Especially>, when printing references, it was designed as a debug aid.
 
 
-  my array = {questions=["sqrt(-4)", "(1-i)**2"], answers=>[{i=>2, real=>0}, {i=>-2, real=>0}]}
+
+=head1 Summary of possible OO args to "ops"
+
+=over 4
+
+depth=>3;          Allows setting depth of nested structure printing.  NOTE: regardless of depth, recursive structures in the same call to C<P>, will not expand but be displayed in some abbreviated form (in flux).
+
+implicit_io=>0;    in printing references, references to globs and i/O handles do not have their contents printed.  If this is wanted, one would call C<ops> with this set to true.
+
+noquote=>1;        in printing items in hashes or arrays, data that are read only or do not need quoting don't have quoting (contrast to Data::Dumper, where it can be turned off or on, but not turned on, only when needed).
+
+maxstring=>undef;      Allows specifying a maximum length of any single datum when expanded from an indirection expansion.
+
+=back
 
 
-B<Note:>  Don't confuse L<P::P> with a Pretty Printer or Data::Dumper.  I<Especially>, when printing references, it was designed as a debug aid.
+=head1 Example 2: Not worrying about "undefs"
+
+Looking at some old code of mine, I found this:
+
+  print sprintf STDERR,
+    "Error: in parsing (%s), proto=%s, host=%s, page=%s\n",
+    $_[0] // "null", $proto // "null", $host // "null",
+    $path // "null";
+  die "Exiting due to error."
+
+Too many words and effort in upgrading a die message! Now it looks like:
+
+  die P "Error: in parsing (%s), proto=%s, host=%s, page=%s",
+          $_[0], $proto, $host, $path;
+
+It's not just about formatting or replacing sprintf -- but automatically
+giving you sanity in places like error messages and debug output when
+the variables you are printing may be 'undef' -- which would abort the
+output entirely!
+
 
 
 =head1 MORE EXAMPLES
 
 
-  P "Hello %s", "World";        # auto NL when to a FH
-  P "Hello \x83"; P "World";    # \x83: suppress auto-NL to FH's 
-  $s = P "%s", "Hello %s";      # not needed if printing to string 
-  P $s, "World";                # still prints "Hello World" 
+  P "Hello %s", "World";            # auto NL when to a FH
+  P "Hello \x83"; P "World";        # \x83: suppress auto-NL to FH's 
+  $s = P "%s", "Hello %s";          # not needed if printing to string 
+  P $s, "World";                    # still prints "Hello World" 
 
-  @a = ("%s", "my string");     # using array, fmt as 1st arg 
-  P @a;
+  @a = ("Hello %s", "World");       # using array, fmt as 1st arg 
+  P @a;                             # print "Hello World"
+  P 0 + @a;                         # prints #items in '@a': 2
 
-  @a = ("Hello %s", "World");   # format in array[0]
-  P @a;
-  P @a;                         # prints 1st of @a elements (Hello %s)
-  P 0 + @a;                     # prints #items in 'a'
+  P "a=%s", \@a;                    # prints contents of 'a': [1,2,3...]
 
-  P "a=%s", \@a;                # prints contents of 'a': [1,2,3...]
+  P STDERR @a                       # use @a as args to a specific FH
+                                    # Uses indirect method calls when invoked
+                                    # like "print FH ARGS"
+                                    #
+  Pe  "Output to STDERR"            # 'Shortcut' for P to STDERR
 
-  P STDERR, @a                  # use @a as args to a specific FH
-                                # NOTE: "," after FH 
-  Pe  "Output to STDERR"        # 'Shortcut' for P to STDERR
-
-  # P Hash bucket usage + contents with hashes
+  # P Hash bucket usage + contents with hashes:
   %H=(one=>1, two=>2, u=>undef);
 
-  P "%H #items %s", 0+%H;       # Show number of  items in hash
-  P "%H hash usage: %s", "".%H; # Shows used/total Hash bucket usage
-  P "%H=%s", \%H;               # Show contents of hash:
+  P "%H hash usage: %s", "".%H;     # Shows used/total Hash bucket usage
+  P "%H=%s", \%H;                   # Show contents of hash:
     %H={u=>(undef), one=>1, two=>2}
 
-  bless my $h=\%H, 'Hclass';    # Blessed objs... 
-  P "Obj-h = %s", $h;        #     & content:
+  bless my $h=\%H, 'Hclass';        # Blessed objs... 
+  P "Obj-h = %s", $h;               #   & content:
     Obj-h = Hclass{u=>(undef), one=>1, two=>2}
 
 
 =head1 NOTES
 
 Values given as args with a format statement, are
-checked for B<undef> and have "C<(undef)>" substituted for undefined values.
+checked for B<undef> and have "E<0x2204>" substituted for undefined values.
 If you print vars as in decimal or floating point, they'll likely show up 
-as 0, which doesn't stand out as well as "C<(undef)>",
+as 0, which doesn't stand out as well.
 
-While usable in any code, it's use was designed to save typing, time
-and work of undef checking, newline handling, and doing the right
-thing with the given input.  It may not be suitable where speed is
-important.
+Sometimes the perl parser gets confused about what args belong to P and
+which do not.  Using parens (i.e. C<P("Hello World")>) can help in those
+cases.
+
+Usable in any code, P was was designed to save typing, time
+and work of undef checking, newline handling, peeking at data 
+structures in small spaces during development.  It tries to do
+the "right thing" with the given input. It may not be 
+suitable where speed is paramount.
 
 =cut
 #}}}1
 
+package P;
 __DATA__
 # line ' .__LINE__ . ' "' ' __FILE__ . "\"\n" . '
+use utf8;
+use utf8::all;
 foreach (qw{STDERR STDOUT}) {select *$_; $|=1};
 use strict; use warnings; 
 use P;
 my %tests;
-my $MAXCASES=11;
+my $MAXCASES=13;
 { my $i=1;
   foreach (@ARGV) {
     if (/^\d+/ && $_<=$MAXCASES) {$tests{$_}=1}
@@ -391,7 +575,7 @@ my $MAXCASES=11;
 exists $tests{7} and $tests{6}=1;
 
 my $format="#%-2d %-25s: ";
-{
+{	#mini-package
   my $case=0;
   sub newcase() {++$case}
   sub caseno() {$case};
@@ -401,7 +585,7 @@ my $format="#%-2d %-25s: ";
 sub case ($) {
   &newcase;
   if (!@ARGV || $tests{&caseno}) {
-	  $_=P (\*STDOUT, $format,  &caseno, "(".$_[0].")");
+	  P ("$format\x83",  &caseno, "(".$_[0].")");
     1
   } else {
     0;
@@ -410,7 +594,7 @@ sub case ($) {
 
 
 case "ret from func" &&
-  P &iter;                         			# case 1: return from func
+  P iter;                         			# case 1: return from func
 
 
 case "w/string" &&
@@ -454,47 +638,34 @@ sub rev{ 1 >= length $_[0] ?	$_[0] :
 case "prev string" &&										# case 7 - print embedded P output
   P "prev str=\"%s\" (no LF) && ${\(+iter())}", $str;
 
-case "p thru '/.../rev' fr/FH" && do {	# case 8 - P 'pipe'
-#we suffer! for this testcase... convert to not using external shell
-#but perl->perl reads through FH
-	my ($childin, $childout, $parentin, $parentout);
-	pipe $childin,$parentout;
-	pipe $parentin,$childout;
-	my ($pid, $result);
-	if ($pid=fork()) {					#parent
-		close $childin; close $childout;
-		P $parentout, &iter;
-		close $parentout;
-		P "%s", $parentin;
-	} elsif (defined($pid) && $pid==0) {  #child
-		close $parentin; close $parentout;
-		my $read;
-		chomp( $read=timed_read($childin,10));
-		chop $read;
-		P $childout, "%s\x83", rev($read);
-		close $childin or die "closing childin: $@"; 
-		close $childout or die "closing childout: $@";
-		exit(0);
-	} else {
-		die "Could not fork: system failure $!";
-	}
-};
-			
-
 case "P && array ref"  && do {
   my @ar=qw(one two three 4 5 6);
-  P "%s",\@ar;													# case 9 - array expansion
+  P "%s",\@ar;													# case 8 - array expansion
 };
 
 my %hash=(a=>'apple', b=>'bread', c=>'cherry');
-case "P HASH ref" &&										# case 10 - hash expansion
+case "P HASH ref" &&										# case 9 - hash expansion
   P "%s", \%hash;
 
-case "P Pkg ref" && do									# case 11 - blessed object
+case "P Pkg ref" && do									# case 10 - blessed object
 {	my $hp;
 	bless $hp={a=>1, b=>2, x=>'y'}, 'Pkg';
 	P "%s", $hp;
 };
 
+case "P \@{[FH,[\"fmt:%s\",…]]}" && do	# case 11 - embed (FH,[fmt,parms])
+{																				# (rt#89056)
+	P @{[\*STDOUT, ["fmt:%s", &iter]]};
+};
+
+case "truncate embedded float" && do		# case 12 - embedded float
+{	my $pi=4*atan2(1,1);
+	P "norm=%s, embed=%s", $pi, {pi=>$pi};
+};
+
+case "test mixed digit string" && do		# case 13 - embed foreign digits
+{	my $p="3.ⅰⅳⅰⅴⅸ";
+	P "embed roman pi = %s", [$p];
+};
 # vim: ts=2 sw=2
 

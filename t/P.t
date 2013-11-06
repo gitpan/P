@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-use 5.10.0;
+use 5.12.0;
 ## Before 'make install' is performed this script should be runnable with
 # 'make test'. After 'make install' it should work as 'perl P.t'
 
@@ -9,7 +9,7 @@ use 5.10.0;
 
 use strict;
 use warnings;
-
+# vim=:SetNumberAndWidth
 
 #########################
 
@@ -30,10 +30,12 @@ BEGIN{
 	push (@answers, [$_, qr{Hello\sPerl\s$_}]) for 1 .. 5;
 	push @answers, [6, ""];
 	push @answers, [7, qr{Hello Perl \d.*Perl 7}];
-	push @answers, [8, qr{[8eHloPr\s]{$sample_strlen}} ];
-	push @answers, [9, qr{^\s*\[.*three.*4.*\]\s*$} ];
-	push @answers, [10, qr{^\s*\{.*a.?=>.apple.*\}$} ];
-	push @answers, [11, qr{Pkg.*\{.*=>.*\}} ];
+	push @answers, [8, qr{^\s*\[.*three.*4.*\]\s*$} ];
+	push @answers, [9, qr{^\s*\{.*a.?=>.apple.*\}$} ];
+	push @answers, [10, qr{Pkg.*\{.*=>.*\}} ];
+	push @answers, [11, qr{fmt:Hello Perl}];
+	push @answers, [12, qr(norm=3\.14159.*embed.*3.14)];
+	push @answers, [13, qr{embed.*ⅴⅸ.*$}];
 
 	#	3 setup tests, all answers have two parts except for 1 (#6)
 	

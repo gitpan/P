@@ -3,17 +3,12 @@ Revision history for Perl module P
 
 
 Bugs Fixed since 1.0.20
-rt#89046
-rt#89047
-rt#89051
-rt#89052
-rt#89055
-rt#89056
-rt#89057
-rt#89058
-rt#89063
-rt#89064
-rt#89067
+(for more info, see: 
+https://rt.cpan.org/Dist/Display.html?Status=Resolved;Queue=P
+)
+rt#89046 rt#89047 rt#85050 rt#89051 rt#89052 rt#89054 rt#89055
+rt#89056 rt#89057 rt#89058 rt#89059 rt#89060 rt#89063 rt#89064
+rt#89065 rt#89066 rt#89067 rt#89069 rt#89071
 ----
 
 Feature changes / additions:
@@ -45,5 +40,10 @@ Feature changes / additions:
 		result as a string instead of using "%f" or "%d".
 * - Beef up tests in self-test to test instances of some of the bugs
 		that also work as examples.
+
+
+Dependency Change:
+*  - execution depends on 'mem' due to having included unpublished
+		 code from a Types module.
 
 	

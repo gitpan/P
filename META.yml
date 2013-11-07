@@ -3,7 +3,7 @@ abstract: 'printf, sprintf & say all-in-1; safer & easier!'
 author:
   - 'Linda Walsh (perl-diddler@tlinx.org)'
 build_requires:
-  ExtUtils::MakeMaker: 0
+  mem: v0.3.2
 configure_requires:
   ExtUtils::MakeMaker: 0
 dynamic_config: 1
@@ -19,4 +19,5 @@ no_index:
     - inc
 requires:
   Test::Simple: 0.44
-version: v1.1.0
+  mem: v0.3.2
+version: v1.1.1

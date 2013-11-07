@@ -1,5 +1,14 @@
 #!/usr/bin/perl
 use 5.12.0;
+if (exists $ENV{PERL5OPT} && defined $ENV{PERL5OPT} && length $ENV{PERL5OPT}) { 
+	die "\n*****************************************\n".
+			 "*****************************************\n" .
+			 "*****************************************\n" .
+	     "*   Please unset PERL5OPT in your ENV   *\n".
+			 "*****************************************\n" .
+			 "*****************************************\n" .
+			 "*****************************************\n";
+}
 ## Before 'make install' is performed this script should be runnable with
 # 'make test'. After 'make install' it should work as 'perl P.t'
 
@@ -12,6 +21,24 @@ use warnings;
 # vim=:SetNumberAndWidth
 
 #########################
+
+BEGIN{
+	eval {require mem };
+	if ($@ && $@ =~ /Can't locate mem/) {
+		# attempt to install via cpan
+		my $inst=`cpan -i mem`;
+		$inst =~ /PASS/ || do {
+		die "\n*****************************************\n".
+				 "*****************************************\n" .
+				 "*****************************************\n" .
+				 "*   Cannot install mem via cpan: BIGFAIL*\n".
+				 "*****************************************\n" .
+				 "*****************************************\n" .
+				 "*****************************************\n";
+		 };
+	}
+}
+
 
 # Insert your test code below, the Test::More module is use()ed here so read
 # its man page ( perldoc Test::More ) for help writing this test script.

@@ -5,11 +5,12 @@
 	BEGIN{ $::INC{__PACKAGE__.".pm"} = __FILE__."#__LINE__"};
 	use 5.10.0;
 	use warnings;
-	our $VERSION='1.1.0';
+	our $VERSION='1.1.1';
 	use utf8;
 # vim=:SetNumberAndWidth
 
 	# RCS $Revision: 1.38 $ -  $Date: 2013-09-30 18:47:44-07 $
+	# 1.1.1   - Fix rest of (rt#89050)
 	# 1.1.0		- Fixed Internal bug#001, below & embedded \n@end of int. str
 	# 					(rt#89064)
 	# 1.0.32	- Fix double nest test case @{[\*STDERR, ["fmt:%s", "string"]]}
@@ -358,7 +359,7 @@ P  -   Safer, friendlier sprintf/printf+say
 
 =head1 VERSION
 
-Version  "1.1.0"
+Version  "1.1.1"
 
 =head1 SYNOPSIS
 
@@ -370,7 +371,7 @@ Version  "1.1.0"
   Pe                          # same as P, but output to  STDERR
 
 
-C<P> is a combined printf, sprintf & say in 1 routine .  It was designed
+C<P> is a combined printf, sprintf & say in 1 routine.  It was designed
 to save on typing and undef checking when printing strings.  It saves on
 in that you don't have constantly insert or move C<newline>s (C<\n>).  
 If you change a string into a formatted string, insert P, as in:

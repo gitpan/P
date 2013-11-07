@@ -5,11 +5,12 @@
 	BEGIN{ $::INC{__PACKAGE__.".pm"} = __FILE__."#__LINE__"};
 	use 5.10.0;
 	use warnings;
-	our $VERSION='1.1.1';
+	our $VERSION='1.1.2';
 	use utf8;
 # vim=:SetNumberAndWidth
 
 	# RCS $Revision: 1.38 $ -  $Date: 2013-09-30 18:47:44-07 $
+	# 1.1.2		- Second try for test in P.t to get prereq's right
 	# 1.1.1   - Fix rest of (rt#89050)
 	# 1.1.0		- Fixed Internal bug#001, below & embedded \n@end of int. str
 	# 					(rt#89064)
@@ -359,7 +360,7 @@ P  -   Safer, friendlier sprintf/printf+say
 
 =head1 VERSION
 
-Version  "1.1.1"
+Version  "1.1.2"
 
 =head1 SYNOPSIS
 

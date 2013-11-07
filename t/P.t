@@ -1,13 +1,18 @@
 #!/usr/bin/perl
-use 5.12.0;
+use strict; use warnings;
+
+# vim=:SetNumberAndWidth
+
+my $starlines=
+			"*****************************************\n".
+			"*****************************************\n".
+			"*****************************************\n"; 
+
+
 if (exists $ENV{PERL5OPT} && defined $ENV{PERL5OPT} && length $ENV{PERL5OPT}) { 
-	die "\n*****************************************\n".
-			 "*****************************************\n" .
-			 "*****************************************\n" .
-	     "*   Please unset PERL5OPT in your ENV   *\n".
-			 "*****************************************\n" .
-			 "*****************************************\n" .
-			 "*****************************************\n";
+	die		"\n" . $starlines.
+	     	"*   Please unset PERL5OPT in your ENV   *\n".
+			 	$starlines;
 }
 ## Before 'make install' is performed this script should be runnable with
 # 'make test'. After 'make install' it should work as 'perl P.t'
@@ -16,26 +21,27 @@ if (exists $ENV{PERL5OPT} && defined $ENV{PERL5OPT} && length $ENV{PERL5OPT}) {
 
 # change 'tests => 1' to 'tests => last_test_to_print';
 
-use strict;
-use warnings;
-# vim=:SetNumberAndWidth
-
 #########################
 
-BEGIN{
-	eval {require mem };
-	if ($@ && $@ =~ /Can't locate mem/) {
-		# attempt to install via cpan
-		my $inst=`cpan -i mem`;
-		$inst =~ /PASS/ || do {
-		die "\n*****************************************\n".
-				 "*****************************************\n" .
-				 "*****************************************\n" .
-				 "*   Cannot install mem via cpan: BIGFAIL*\n".
-				 "*****************************************\n" .
-				 "*****************************************\n" .
-				 "*****************************************\n";
-		 };
+BEGIN {
+	sub check_prereq () {
+		eval {require mem };
+		if ($@) {
+			if ($@ =~ /Can't locate mem/) {
+				# attempt to install via cpan
+				my $inst=`cpan -i mem`;
+				$inst =~ /PASS/ || do {
+				die 	"\n" . $starlines .
+							"*   Cannot install mem via cpan: BIGFAIL  *\n".
+							$starlines;
+				};
+			} else {
+				die 	"\n" . $starlines .
+							"*   Cannot find prerequisite 'mem.pm'.    *\n".
+							$starlines;
+			}
+		}
+		1;
 	}
 }
 
@@ -69,7 +75,10 @@ BEGIN{
 	$num_tests=3+2*@answers-2;
 }
 
-use Test::More tests => $num_tests;
+use Test::More tests => $num_tests+1;
+BEGIN { use_ok('mem') };
+
+&check_prereq or die "Prereq mem not found";
 
 BEGIN { use_ok('P') };
 

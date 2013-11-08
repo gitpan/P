@@ -3,17 +3,6 @@ use strict; use warnings;
 
 # vim=:SetNumberAndWidth
 
-my $starlines=
-			"*****************************************\n".
-			"*****************************************\n".
-			"*****************************************\n"; 
-
-
-if (exists $ENV{PERL5OPT} && defined $ENV{PERL5OPT} && length $ENV{PERL5OPT}) { 
-	die		"\n" . $starlines.
-	     	"*   Please unset PERL5OPT in your ENV   *\n".
-			 	$starlines;
-}
 ## Before 'make install' is performed this script should be runnable with
 # 'make test'. After 'make install' it should work as 'perl P.t'
 
@@ -22,28 +11,6 @@ if (exists $ENV{PERL5OPT} && defined $ENV{PERL5OPT} && length $ENV{PERL5OPT}) {
 # change 'tests => 1' to 'tests => last_test_to_print';
 
 #########################
-
-BEGIN {
-	sub check_prereq () {
-		eval {require mem };
-		if ($@) {
-			if ($@ =~ /Can't locate mem/) {
-				# attempt to install via cpan
-				my $inst=`cpan -i mem`;
-				$inst =~ /PASS/ || do {
-				die 	"\n" . $starlines .
-							"*   Cannot install mem via cpan: BIGFAIL  *\n".
-							$starlines;
-				};
-			} else {
-				die 	"\n" . $starlines .
-							"*   Cannot find prerequisite 'mem.pm'.    *\n".
-							$starlines;
-			}
-		}
-		1;
-	}
-}
 
 
 # Insert your test code below, the Test::More module is use()ed here so read
@@ -56,7 +23,7 @@ our $tp;
 
 BEGIN{
 	$tp="lib/P.pm";
-
+	
 	$sample_strlen=length "Hello Perl 0";
 
 	$_=1;
@@ -73,14 +40,24 @@ BEGIN{
 	#	3 setup tests, all answers have two parts except for 1 (#6)
 	
 	$num_tests=3+2*@answers-2;
+
 }
 
-use Test::More tests => $num_tests+1;
-BEGIN { use_ok('mem') };
+use Test::More tests => $num_tests+2;
+#BEGIN {
+#my $builder = Test::More->builder;
+#binmode $builder->output,         ":utf8";
+#binmode $builder->failure_output, ":utf8";
+#binmode $builder->todo_output,    ":utf8";
+#}
 
-&check_prereq or die "Prereq mem not found";
 
-BEGIN { use_ok('P') };
+BEGIN { use_ok('mem') || BAIL_OUT("missing pre-req mem");};
+
+BEGIN { use_ok('P') || BAIL_OUT("missing module to test");};
+
+BEGIN { ok(!defined $ENV{PERL5OPT} || $ENV{PERL5OPT} !~ /utf8/) ||
+				BAIL_OUT("\nincompat utf8 set in PERL5OPT");}
 
 my $match_case_n_name=qr{^.(\d+)\s*\(([^\)]+)\)[^:]*:};
 my $match_testout=qr{\s*(.*)$};
@@ -103,12 +80,14 @@ sub get_case($;$) {
 	$out;
 }
 
+sub sv($) { defined $_[0] ? $_[0] : "(undef)" }
+
 my $caseno=0;
 for my $matchp (@answers) {
 	my ($rcase, $name, $rstr);
 	my $re = $matchp->[1];
 	++$caseno;
-	if ($caseno == 5) {
+	if ($caseno == 5) {	# see if output was on STDERR
 		my $null;
 		my $dev;
 		open($null, ">", $dev="/dev/null") or
@@ -142,7 +121,11 @@ for my $matchp (@answers) {
 		&restoreSTDs if $caseno==5;
 	}
 	ok($rcase && $caseno == $rcase, "received testcase $caseno");
-	if (length($re)) {ok($rstr =~ m{$re}, $name)}
+	if (length($re)) {
+		ok($rstr =~ m{$re}, $name) || 
+			diag( sprintf "Regex \"%s\" did not match string \"%s\" in case \"%s\".", 
+				sv($re), sv($rstr), sv($name) );
+	}
 }
 
 

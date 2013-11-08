@@ -5,11 +5,12 @@
 	BEGIN{ $::INC{__PACKAGE__.".pm"} = __FILE__."#__LINE__"};
 
 	use warnings;
-	our $VERSION='1.1.3';
+	our $VERSION='1.1.4';
 	use utf8;
 # vim=:SetNumberAndWidth
 
 	# RCS $Revision: 1.38 $ -  $Date: 2013-09-30 18:47:44-07 $
+	# 1.1.4		- Quick patch to enable use of state w/CORE::state
 	# 1.1.3		- [#$@%&!!!]
 	# 1.1.2		- Second try for test in P.t to get prereq's right
 	# 1.1.1   - Fix rest of (rt#89050)
@@ -156,7 +157,7 @@
 		$@ && die "_isatype eval(2): $@";
 		unless ($types_available) {
 			eval '# line ' . __LINE__ .' '. __FILE__ .'
-							sub ' . $_ . ' (;*) {	state $t;
+							sub ' . $_ . ' (;*) {	CORE::state $t;
 								unless ($t) { my $c03 = (caller 0)[3]; $t = 1+index $c03, ":";
 									$t && ++$t;	
 									$t=substr $c03, $t }
@@ -361,7 +362,7 @@ P  -   Safer, friendlier sprintf/printf+say
 
 =head1 VERSION
 
-Version  "1.1.3"
+Version  "1.1.4"
 
 =head1 SYNOPSIS
 

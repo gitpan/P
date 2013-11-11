@@ -5,11 +5,15 @@
 	BEGIN{ $::INC{__PACKAGE__.".pm"} = __FILE__."#__LINE__"};
 
 	use warnings;
-	our $VERSION='1.1.4';
+	our $VERSION='1.1.5';
 	use utf8;
 # vim=:SetNumberAndWidth
 
 	# RCS $Revision: 1.38 $ -  $Date: 2013-09-30 18:47:44-07 $
+	# 1.1.5		- Distribution change: use --format=v7 on tar to produce tarball
+	# 					(rt#90165)
+	# 				- Use shell script to preset env for test since 
+	# 				  Test::More doesn't set ENV 
 	# 1.1.4		- Quick patch to enable use of state w/CORE::state
 	# 1.1.3		- [#$@%&!!!]
 	# 1.1.2		- Second try for test in P.t to get prereq's right
@@ -157,12 +161,8 @@
 		$@ && die "_isatype eval(2): $@";
 		unless ($types_available) {
 			eval '# line ' . __LINE__ .' '. __FILE__ .'
-							sub ' . $_ . ' (;*) {	CORE::state $t;
-								unless ($t) { my $c03 = (caller 0)[3]; $t = 1+index $c03, ":";
-									$t && ++$t;	
-									$t=substr $c03, $t }
-								my $p = $_[0];
-								return @_ ? _isatype($p, $t) : $t } ' for @TYPES;
+							sub ' . $_ . ' (;*) {	
+								return @_ ? _isatype($_[0], '.$_.') : '.$_.' } ' for @TYPES;
 		}
 	}
 
@@ -362,7 +362,7 @@ P  -   Safer, friendlier sprintf/printf+say
 
 =head1 VERSION
 
-Version  "1.1.4"
+Version  "1.1.5"
 
 =head1 SYNOPSIS
 

@@ -56,7 +56,7 @@ BEGIN { use_ok('mem') || BAIL_OUT("missing pre-req mem");};
 
 BEGIN { use_ok('P') || BAIL_OUT("missing module to test");};
 
-BEGIN { ok(!defined $ENV{PERL5OPT} || $ENV{PERL5OPT} !~ /utf8/) ||
+BEGIN { ok(!defined $ENV{PERL5OPT} || $ENV{PERL5OPT} !~ /utf8/, "check for utf8 in ENV (causes probs)") ||
 				BAIL_OUT("\nincompat utf8 set in PERL5OPT");}
 
 my $match_case_n_name=qr{^.(\d+)\s*\(([^\)]+)\)[^:]*:};

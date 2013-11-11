@@ -13,4 +13,6 @@ WriteMakefile(
                      'Test::Simple' => 0.44,
 										 'mem'	=> '0.3.2',
                     },
+		dist				=> { TARFLAGS=> 'c --format=v7 -f' },
+		test				=> { TESTS => 't/*.sh' }
 );

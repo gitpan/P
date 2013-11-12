@@ -5,11 +5,13 @@
 	BEGIN{ $::INC{__PACKAGE__.".pm"} = __FILE__."#__LINE__"};
 
 	use warnings;
-	our $VERSION='1.1.5';
+	our $VERSION='1.1.6';
 	use utf8;
 # vim=:SetNumberAndWidth
 
 	# RCS $Revision: 1.38 $ -  $Date: 2013-09-30 18:47:44-07 $
+	# 1.1.6		- Use t/P.env for premodifying  ENV
+	# 					Document effect of printing to a FH & recording return val;
 	# 1.1.5		- Distribution change: use --format=v7 on tar to produce tarball
 	# 					(rt#90165)
 	# 				- Use shell script to preset env for test since 
@@ -334,10 +336,12 @@
 
 {
 	package main;
+	use utf8;
 
 	unless ((caller 0)[0]) {
 		binmode P::DATA, ":utf8";
 		binmode *STDOUT, ":utf8";
+		binmode *STDERR, ":utf8";
     $_=do{ $/=undef, <P::DATA>};
 		close P::DATA;
 		our @globals;
@@ -358,11 +362,11 @@
 
 =head1 NAME
 
-P  -   Safer, friendlier sprintf/printf+say
+P  -   Safer, friendlier printf/print/sprintf + say
 
 =head1 VERSION
 
-Version  "1.1.5"
+Version  "1.1.6"
 
 =head1 SYNOPSIS
 
@@ -405,7 +409,9 @@ or subtracting them based on if they are going to a file handle or to another
 variable.
 
 The newline handling at the end of a line can be supressed by adding
-the Unicode control char "Don't break here" (0x83) at the end of a string.
+the Unicode control char "Don't break here" (0x83) at the end of a string
+or by assigning the return value B<and> having a file handle as the first
+argument.  Ex: C<my $fmt = P STDOUT, "no LF added=> ";>.
 
 Blessed objects, by default,  are printed with the Class name in front of the
 reference.   Note that these substitutions are performed only with 

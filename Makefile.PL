@@ -14,5 +14,5 @@ WriteMakefile(
 										 'mem'	=> '0.3.2',
                     },
 		dist				=> { TARFLAGS=> 'c --format=v7 -f' },
-		test				=> { TESTS => 't/*.sh' }
+		test				=> { TESTS => 't/*.env' }
 );

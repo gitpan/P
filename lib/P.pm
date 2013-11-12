@@ -5,11 +5,12 @@
 	BEGIN{ $::INC{__PACKAGE__.".pm"} = __FILE__."#__LINE__"};
 
 	use warnings;
-	our $VERSION='1.1.6';
+	our $VERSION='1.1.7';
 	use utf8;
 # vim=:SetNumberAndWidth
 
-	# RCS $Revision: 1.38 $ -  $Date: 2013-09-30 18:47:44-07 $
+	# RCS $Revision: 1.40 $ -  $Date: 2013-11-12 12:37:10-08 $
+	# 1.1.7		- Fix Makefile.PL
 	# 1.1.6		- Use t/P.env for premodifying  ENV
 	# 					Document effect of printing to a FH & recording return val;
 	# 1.1.5		- Distribution change: use --format=v7 on tar to produce tarball
@@ -366,7 +367,7 @@ P  -   Safer, friendlier printf/print/sprintf + say
 
 =head1 VERSION
 
-Version  "1.1.6"
+Version  "1.1.7"
 
 =head1 SYNOPSIS
 

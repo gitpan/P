@@ -5,11 +5,13 @@
 	BEGIN{ $::INC{__PACKAGE__.".pm"} = __FILE__."#__LINE__"};
 
 	use warnings;
-	our $VERSION='1.1.9';
+	our $VERSION='1.1.10';
 	use utf8;
 # vim=:SetNumberAndWidth
 
 	# RCS $Revision: 1.41 $ -  $Date: 2013-11-12 14:17:12-08 $
+	# 1.1.10	- Another internal format error bug (unreported), but caught
+	# 					in testing.
 	# 1.1.9		- Try to fix paths for test
 	# 1.1.8		- use ptar to generate Archive::tar compat archives
 	# 1.1.7		- Fix Makefile.PL
@@ -217,7 +219,8 @@
 										sub ($$) { $_[1] 														&& qq{%s}},
 										sub ($$) { 1==length($_[0]) 								&& q{'%s'}},
 										sub ($$) { $_[0] =~ 
-											/^[+-]?(?:\.[0-9]+)|(?:[0-9]+\.[0-9]+)\z/ && q{%.2f}},
+											/^(?:[+-]?(?:\.[0-9]+)
+												|(?:[0-9]+\.[0-9]+))\z/x  &&  q{%.2f}},
 										sub ($$) { substr($_[0],0,4) eq HASH				&& q({…})},
 										sub ($$) { substr($_[0],0,5) eq ARRAY				&& q([…])},
 										#	sub ($$) { $mxstr && length ($_[0])>$mxstr 
@@ -371,7 +374,7 @@ P  -   Safer, friendlier printf/print/sprintf + say
 
 =head1 VERSION
 
-Version  "1.1.9"
+Version  "1.1.10"
 
 =head1 SYNOPSIS
 

@@ -1,8 +1,10 @@
 ---
-abstract: 'printf, sprintf & say all-in-1; safer & easier!'
+abstract: 'safer+easier printf, sprintf & say all-in-1'
 author:
-  - 'Linda Walsh (perl-diddler@tlinx.org)'
+  - 'Linda Walsh (LAWALSH@cpan.org)'
 build_requires:
+  ExtUtils::MakeMaker: 0
+  Test::Simple: 0.44
   mem: v0.3.2
 configure_requires:
   ExtUtils::MakeMaker: 0
@@ -18,6 +20,5 @@ no_index:
     - t
     - inc
 requires:
-  Test::Simple: 0.44
   mem: v0.3.2
-version: v1.1.8
+version: v1.1.9

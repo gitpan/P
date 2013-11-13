@@ -5,14 +5,16 @@ use ExtUtils::MakeMaker;
 # the contents of the Makefile that is written.
 WriteMakefile(
     NAME         => 'P',
-		BUILD_REQUIRES => { mem => '0.3.2' },
     VERSION_FROM => 'lib/P.pm', # finds \$VERSION
-    AUTHOR       => 'Linda Walsh (perl-diddler@tlinx.org)',
-    ABSTRACT     => 'printf, sprintf & say all-in-1; safer & easier!',
+    AUTHOR       => 'Linda Walsh (LAWALSH@cpan.org)',
+    ABSTRACT     => 'safer+easier printf, sprintf & say all-in-1',
     PREREQ_PM    => {
-                     'Test::Simple' => 0.44,
 										 'mem'	=> '0.3.2',
                     },
+		TEST_REQUIRES=> {
+                     'Test::Simple' => 0.44,
+										 'mem'	=> '0.3.2',
+									 },
 		dist				=> { TAR=> 'ptar' },
 		test				=> { TESTS => 't/*.env' }
 );

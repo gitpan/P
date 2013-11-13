@@ -5,11 +5,12 @@
 	BEGIN{ $::INC{__PACKAGE__.".pm"} = __FILE__."#__LINE__"};
 
 	use warnings;
-	our $VERSION='1.1.8';
+	our $VERSION='1.1.9';
 	use utf8;
 # vim=:SetNumberAndWidth
 
-	# RCS $Revision: 1.40 $ -  $Date: 2013-11-12 12:37:10-08 $
+	# RCS $Revision: 1.41 $ -  $Date: 2013-11-12 14:17:12-08 $
+	# 1.1.9		- Try to fix paths for test
 	# 1.1.8		- use ptar to generate Archive::tar compat archives
 	# 1.1.7		- Fix Makefile.PL
 	# 1.1.6		- Use t/P.env for premodifying  ENV
@@ -174,9 +175,10 @@
 	our %dflts;
 	use mem(%dflts=(implicit_io=>0, depth=>3, noquote=>1, maxstring=>undef));
 
-	use constant EXPERIMENTAL=>0;	
+	BEGIN {
+		use constant EXPERIMENTAL=>0;	
 
-	BEGIN { if (EXPERIMENTAL) {				#{{{
+	if (EXPERIMENTAL) {				#{{{
 		sub rm_adjacent {
 			my $c = 1;
 			($a, $c) = @$a if ref $a;
@@ -195,7 +197,8 @@
 			}
 			@final;
 		}
-	} }															#}}}
+	} 
+	}															#}}}
 
 	use constant {UTF8lead => 0xc2, NoBrHr => 0x83, BkSlsh => 0x5c};
 
@@ -368,7 +371,7 @@ P  -   Safer, friendlier printf/print/sprintf + say
 
 =head1 VERSION
 
-Version  "1.1.8"
+Version  "1.1.9"
 
 =head1 SYNOPSIS
 

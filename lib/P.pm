@@ -5,11 +5,12 @@
 	BEGIN{ $::INC{__PACKAGE__.".pm"} = __FILE__."#__LINE__"};
 
 	use warnings;
-	our $VERSION='1.1.10';
+	our $VERSION='1.1.11';
 	use utf8;
 # vim=:SetNumberAndWidth
 
 	# RCS $Revision: 1.41 $ -  $Date: 2013-11-12 14:17:12-08 $
+	# 1.1.11	- May have found another test bug.... trying fix for some fails
 	# 1.1.10	- Another internal format error bug (unreported), but caught
 	# 					in testing.
 	# 1.1.9		- Try to fix paths for test
@@ -374,7 +375,7 @@ P  -   Safer, friendlier printf/print/sprintf + say
 
 =head1 VERSION
 
-Version  "1.1.10"
+Version  "1.1.11"
 
 =head1 SYNOPSIS
 

@@ -21,4 +21,4 @@ no_index:
     - inc
 requires:
   mem: v0.3.2
-version: v1.1.10
+version: v1.1.11

@@ -69,8 +69,7 @@ chmod( 0755, $tp);
 
 sub get_case($;$) {
 	my $case = shift;
-	my $perl = $Config{perlpath};
-	my $cmd = @_? "$perl $tp $case ".$_[0]."|" : "$perl $tp $case |";
+	my $cmd = @_? "$^X $tp $case ".$_[0]."|" : "$^X $tp $case |";
 	open(my $fh, $cmd) || return undef;
 	my $out;
 	{ local $/=undef;

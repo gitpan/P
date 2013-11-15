@@ -15,6 +15,6 @@ WriteMakefile(
                      'Test::Simple' => 0.44,
 										 'mem'	=> '0.3.2',
 									 },
-		dist				=> { TAR=> 'ptar' },
+		dist				=> { TAR=> 'ptar' , TARFLAGS=> "-cvf" },
 		test				=> { TESTS => 't/*.env' }
 );

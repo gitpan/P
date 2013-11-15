@@ -5,11 +5,15 @@
 	BEGIN{ $::INC{__PACKAGE__.".pm"} = __FILE__."#__LINE__"};
 
 	use warnings;
-	our $VERSION='1.1.14';
+	our $VERSION='1.1.16';
 	use utf8;
 # vim=:SetNumberAndWidth
 
 	# RCS $Revision: 1.41 $ -  $Date: 2013-11-12 14:17:12-08 $
+	# 1.1.16	- Different shot in dark to see if a change in P.env can make
+	# 					things work on WinXP
+	# 1.1.15	- Shot in dark to get 5.8.x to work(5.10 and newer seem to 
+	# 					be working!
 	# 1.1.14	- and write out buffer from editor! (arg!)
 	# 1.1.13	- get perl w/ ^X rather than config
 	# 1.1.12	- Found another potential problem in the test prog.
@@ -181,10 +185,11 @@
 	our %dflts;
 	use mem(%dflts=(implicit_io=>0, depth=>3, noquote=>1, maxstring=>undef));
 
+	my $ignore=<<'IGN'
 	BEGIN {
-		use constant EXPERIMENTAL=>0;	
+		use constant EXPERIMENTAL=>0;
 
-	if (EXPERIMENTAL) {				#{{{
+	if (EXPERIMENTAL) {				
 		sub rm_adjacent {
 			my $c = 1;
 			($a, $c) = @$a if ref $a;
@@ -204,7 +209,9 @@
 			@final;
 		}
 	} 
-	}															#}}}
+	}												
+IGN
+	||undef;
 
 	use constant {UTF8lead => 0xc2, NoBrHr => 0x83, BkSlsh => 0x5c};
 
@@ -378,7 +385,7 @@ P  -   Safer, friendlier printf/print/sprintf + say
 
 =head1 VERSION
 
-Version  "1.1.14"
+Version  "1.1.16"
 
 =head1 SYNOPSIS
 

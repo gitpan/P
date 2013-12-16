@@ -5,13 +5,18 @@
 	BEGIN{ $::INC{__PACKAGE__.".pm"} = __FILE__."#__LINE__"};
 
 	use warnings;
-	our $VERSION='1.1.16';
+	our $VERSION='1.1.17';
 	use utf8;
 # vim=:SetNumberAndWidth
 
 	# RCS $Revision: 1.41 $ -  $Date: 2013-11-12 14:17:12-08 $
+	# 1.1.17  - Documentation refinements/fixes;  Found possible culprit as to
+	#           why Windows native tests could fail -- my source files in 
+	#           lib have pointed back to my real lib dir via a symlink.
+	#           Windows wouldn't like those.  Why any other platform did is
+	#           likely some fluke of directory organization during test
 	# 1.1.16	- Different shot in dark to see if a change in P.env can make
-	# 					things work on WinXP
+	# 					things work on Win-native
 	# 1.1.15	- Shot in dark to get 5.8.x to work(5.10 and newer seem to 
 	# 					be working!
 	# 1.1.14	- and write out buffer from editor! (arg!)
@@ -385,17 +390,21 @@ P  -   Safer, friendlier printf/print/sprintf + say
 
 =head1 VERSION
 
-Version  "1.1.16"
+Version  "1.1.17"
 
 =head1 SYNOPSIS
 
 
-  P FILEHANDLE, FORMAT, LIST
-  P FORMAT, LIST
+  P FILEHANDLE FORMAT, LIST
+  P FILEHANDLE LIST
+  P FORMAT, (LIST)
+  P (LIST)
   P @ARRAY
-  $s=P @ARRAY; P $s;          # same output as "P @ARRAY" 
-  Pe                          # same as P, but output to  STDERR
+  $s = P @ARRAY; P $s;       # same output as "P @ARRAY" 
+  Pe                         # similar to P w/FILEHANDLE default = STDERR
+  $s = P FILEHANDLE ...      # sends same output to $s and FILEHANDLE
 
+=head1 DESCRIPTION
 
 C<P> is a combined printf, sprintf & say in 1 routine.  It was designed
 to save on typing and undef checking when printing strings.  It saves on
@@ -416,8 +425,6 @@ By default C<P>, prints the content of references (instead HASH
 (or ARRAY)=(0x12345678), three levels deep.  Deeper nesting is replaced
 by the unicode ellipsis character (U+2026).
 
-=head1 DESCRIPTION
-
 While designed for development use, it is useful in many more situations, as 
 tries to "do the right thing" based on context.  It can usually be used
 as a drop-in replacement the perl functions C<print>, C<printf>, C<sprintf>,
@@ -430,34 +437,40 @@ variable.
 The newline handling at the end of a line can be supressed by adding
 the Unicode control char "Don't break here" (0x83) at the end of a string
 or by assigning the return value B<and> having a file handle as the first
-argument.  Ex: C<my $fmt = P STDOUT, "no LF added=> ";>.
+argument.  Ex: C<my $fmt = P STDOUT, "no LF added here--E<gt>">.
 
-Blessed objects, by default,  are printed with the Class name in front of the
-reference.   Note that these substitutions are performed only with 
+
+C<Bless>ed objects, by default,  are printed with the Class or package name
+in front of the reference.   Note that these substitutions are performed only with 
 references printed through a string (C<"%s">) format -- features designed
 to give useful output in development or debug situations.
 
-One minor difference between C<P> and C<sprintf>': P takes the same
-list format as C<printf>.  P does not implement the sprintf's design flaw
-in forcing an array argument into scalar context, which is described in
-the perl documentation as something that is almost never useful.
+One minor difference between C<P> and C<sprintf>: C<P> can take 
+an array with the format in the 0th element, and parameters following.  
+C<Sprintf> will cause an error to be raised, if you try passing an array
+to it, as it will force the array into scalar context -- which as 
+the manpage says "is almost never useful".  Rather than follow in the
+design flaws of its predecessors, P I<tries> to do the right thing.
+
 
 B<NOTE:> A side effect of P being a contextual replacement for sprintf,
 is if it is used as the last line of a subroutine.  By default, this
-won't print it's arguments to STDOUT, but acts as sprintf in returning
-the formatted string to the caller.
+won't print it's arguments to STDOUT unless you explicity specify the
+filehandle, as it will think it is supposed to return the result -- not
+print it.
 
-=head1 Experimental Features
 
-While P is normally called procedurally, and not as an object, there are 
-some rare cases where you would really like it to print "just 1 level
-deeper".  To do that, you need to get a pointer to P's C<options>. 
+=head2 Special Use Features
 
-To get that pointer, call P::->ops({key=>value}) to set C<P>'s options and
-save the return value.  Use that as a class-pointer to call P.  See
-following example.
 
-=head1 Example
+While C<P> is normally called procedurally, and not as an object, there are 
+some rare cases where one would really like it to print "just 1 level
+deeper".  To do that, you need to get a pointer to C<P>'s C<options>. 
+
+To get that pointer, call C<P::-E<gt>ops({key=>value})> to set C<P>'s options and
+save the return value.  Use that pointer to call P.  See following example.
+
+=head1 EXAMPLE: (changing P's defaults)
 
 Suppose you had an array of objects, and you wanted to see the contents
 of the objects in the array.  Normally P would only print the first two levels:
@@ -467,17 +480,19 @@ of the objects in the array.  Normally P would only print the first two levels:
       questions =E<gt> [ "sqrt(-4)",  "(1-i)**2"     ],
       answers   =E<gt> [ {real => 0, i =>2 }, 
                      {real => 0, i => -2 } ] );
-	my $prob_ref = \%complex_problems;
+  my $prob_ref = \%complex_problems;
   P "my probs = %s", [$prob_ref];
 
 
-Would normally produce:
+The above would normally produce:
 
   my probs = [{answers=>[{…}, {…}], questions=>["sqrt(-4)", "(1-i)**2"]}]
 
 
-When you might want to see those hashes as they are short anyway.  To
-do that you'd use the object and print with that, like this:
+Instead of the contents of the hashes, P shows the ellipses (a 1 char-width
+wide character) for the interior of the hashes.  If you wanted the interior to
+print, you'd need to raise the default data expansion I<depth> for C<P> as we
+do here:
 
 
   my %complex_probs = (                                     
@@ -487,31 +502,67 @@ do that you'd use the object and print with that, like this:
   $p->P("my array = %s", \%complex_probs);
 
 
-Which produces:
-  
+The above allows 1 extra level of depth to be printed, so the elements in the
+hash are displayed producing: 
+
   my probs = [{answers=>[{i=>2, real=>0}, {i=>-2, real=>0}],  # extra "\n" 
-	             questions=>["sqrt(-4)", "(1-i)**2"]}]
-
-B<Note:>  Don't confuse C<P> with a Pretty Printer or Data::Dumper.  I<Especially>, when printing references, it was designed as a debug aid.
+               questions=>["sqrt(-4)", "(1-i)**2"]}]
 
 
+B<NOTE:>  when referring to the <Bpackage> B<C<P>>, a double colon is usually
+needed to tell perl you are not talking about the function name.
 
-=head1 Summary of possible OO args to "ops"
+Please don't expect data printed by P to be "pretty" or parseable.  It's not
+meant to be a Perl::Tidy or Data::Dumper.  I<Especially>, when printing
+references, it was designed as a development aid.
 
-=over 4
 
-depth=>3;          Allows setting depth of nested structure printing.  NOTE: regardless of depth, recursive structures in the same call to C<P>, will not expand but be displayed in some abbreviated form (in flux).
 
-implicit_io=>0;    in printing references, references to globs and i/O handles do not have their contents printed.  If this is wanted, one would call C<ops> with this set to true.
+=head2 Summary of possible OO args to "ops" (and defaults)
 
-noquote=>1;        in printing items in hashes or arrays, data that are read only or do not need quoting don't have quoting (contrast to Data::Dumper, where it can be turned off or on, but not turned on, only when needed).
+=over
 
-maxstring=>undef;      Allows specifying a maximum length of any single datum when expanded from an indirection expansion.
+=item C<depth =E<gt> 3>
+
+=over
+
+Allows setting depth of nested structure printing.  NOTE: regardless of depth,
+recursive structures in the same call to C<P>, will not expand but be displayed
+in some abbreviated form (in flux).
 
 =back
 
+=item C<implicit_io =E<gt> 0>
 
-=head1 Example 2: Not worrying about "undefs"
+=over
+
+In printing references, references to globs and i/O handles do not have their
+contents printed.  If this is wanted, one would call C<ops> with this set to
+true (1).
+
+=back
+
+=item C<noquote =E<gt> 1>
+
+=over
+
+In printing items in hashes or arrays, data that are Read-Only or do not need
+quoting won't have quoting (contrast to Data::Dumper, where it can be turned
+off or on, but not turned on, only when needed).
+
+=back
+
+=item C<maxstring =E<gt> undef>
+
+=over 2
+
+Allows specifying a maximum length of any single datum when expanded from an indirection expansion.
+
+=back
+
+=back
+
+=head2 Example 2: Not worrying about "undefs"
 
 Looking at some old code of mine, I found this:
 
@@ -573,7 +624,7 @@ If you print vars as in decimal or floating point, they'll likely show up
 as 0, which doesn't stand out as well.
 
 Sometimes the perl parser gets confused about what args belong to P and
-which do not.  Using parens (i.e. C<P("Hello World")>) can help in those
+which do not.  Using parentheses (I<ex.> C<P("Hello World")>) can help in those
 cases.
 
 Usable in any code, P was was designed to save typing, time
@@ -599,7 +650,7 @@ my $MAXCASES=13;
 { my $i=1;
   foreach (@ARGV) {
     if (/^\d+/ && $_<=$MAXCASES) {$tests{$_}=1}
-		else {die P "%s: no such test case", $_}
+    else {die P "%s: no such test case", $_}
   }
 }
 exists $tests{7} and $tests{6}=1;

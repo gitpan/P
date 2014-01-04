@@ -5,11 +5,14 @@
 	BEGIN{ $::INC{__PACKAGE__.".pm"} = __FILE__."#__LINE__"};
 
 	use warnings;
-	our $VERSION='1.1.17';
+	our $VERSION='1.1.18';
 	use utf8;
 # vim=:SetNumberAndWidth
 
 	# RCS $Revision: 1.41 $ -  $Date: 2013-11-12 14:17:12-08 $
+	# 1.1.18  - Unreported bugfix:
+	# 					the words HASH & ARRAY were sometimes printed in ref notation
+	# 				- remove included 'Types' code to use Types::Core (now published)
 	# 1.1.17  - Documentation refinements/fixes;  Found possible culprit as to
 	#           why Windows native tests could fail -- my source files in 
 	#           lib have pointed back to my real lib dir via a symlink.
@@ -161,34 +164,21 @@
 	our (@ISA, @EXPORT);
 	{ no warnings "once";
 		*IO::Handle::P = P::P; *IO::Handle::Pe = P::P }
-	our ($types_available, @TYPES);
+#	our ($types_available, @TYPES);
 		
 	##NOTE: the types-code is here from yet-to-be published helper mod
 	#       include minimal necessary bits to make things work
 	#
-	BEGIN {@EXPORT=qw(P Pe), @ISA=qw(Exporter); 
-
-			eval {require  Types; Types->import()};
-	 $types_available=!$@;
-
-		use mem(@TYPES=qw(ARRAY CODE GLOB HASH IO REF SCALAR));
-		eval '# line ' . __LINE__ .' '. __FILE__ .' 
-			
-		sub _isatype($$) {
-			my ($var, $type) = @_;
-			ref $var && (1+index($var, $type)) ? 1 : 0;
-		}';
-		$@ && die "_isatype eval(2): $@";
-		unless ($types_available) {
-			eval '# line ' . __LINE__ .' '. __FILE__ .'
-							sub ' . $_ . ' (;*) {	
-								return @_ ? _isatype($_[0], '.$_.') : '.$_.' } ' for @TYPES;
-		}
-	}
-
-	use Exporter;
-	our %dflts;
-	use mem(%dflts=(implicit_io=>0, depth=>3, noquote=>1, maxstring=>undef));
+	use Types::Core;
+	use mem(@EXPORT=qw(P Pe));
+	#use mem(@ISA=qw(Exporter)); use Exporter;
+	use Xporter;	
+	our %dflts;				# below refs to ENV don't seem to have an effect(TBD)
+	use mem(%dflts=(
+			implicit_io	=> 0, 
+			depth				=> $ENV{_P::P::depth} || 3, 
+			noquote			=> 1, 
+			maxstring		=> $ENV{_P::P::maxstring} || undef));
 
 	my $ignore=<<'IGN'
 	BEGIN {
@@ -237,8 +227,8 @@ IGN
 										sub ($$) { $_[0] =~ 
 											/^(?:[+-]?(?:\.[0-9]+)
 												|(?:[0-9]+\.[0-9]+))\z/x  &&  q{%.2f}},
-										sub ($$) { substr($_[0],0,4) eq HASH				&& q({…})},
-										sub ($$) { substr($_[0],0,5) eq ARRAY				&& q([…])},
+										sub ($$) { substr($_[0],0,5) eq 'HASH('				&& q({…})},
+										sub ($$) { substr($_[0],0,6) eq 'ARRAY('			&& q([…])},
 										#	sub ($$) { $mxstr && length ($_[0])>$mxstr 
 										#						&& qq("%.${mxstr}s")},
 										sub ($$) { 1																&& q{"%s"}} ];
@@ -330,6 +320,7 @@ IGN
 
 		else { return unsee_ret($res) if (!$explicit_out and $ctx==1) }
 
+		no warnings 'utf8';
 		print $fh ($res . (!$ctx && (!$\ || $\ ne "\n") ? "\n" : "")  );
 		unsee_ret($res);
 	};
@@ -390,7 +381,7 @@ P  -   Safer, friendlier printf/print/sprintf + say
 
 =head1 VERSION
 
-Version  "1.1.17"
+Version  "1.1.18"
 
 =head1 SYNOPSIS
 

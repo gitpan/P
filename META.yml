@@ -20,5 +20,7 @@ no_index:
     - t
     - inc
 requires:
-  mem: v0.3.2
-version: v1.1.17
+  Types::Core: v0.1.3
+  Xporter: v0.0.5
+  mem: v0.4.0
+version: v1.1.18

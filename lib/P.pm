@@ -5,11 +5,12 @@
 	BEGIN{ $::INC{__PACKAGE__.".pm"} = __FILE__."#__LINE__"};
 
 	use warnings;
-	our $VERSION='1.1.18';
+	our $VERSION='1.1.19';
 	use utf8;
 # vim=:SetNumberAndWidth
 
 	# RCS $Revision: 1.41 $ -  $Date: 2013-11-12 14:17:12-08 $
+	# 1.1.19	- Prereqs not being loaded in Cpantesters; attempt fix
 	# 1.1.18  - Unreported bugfix:
 	# 					the words HASH & ARRAY were sometimes printed in ref notation
 	# 				- remove included 'Types' code to use Types::Core (now published)
@@ -381,7 +382,7 @@ P  -   Safer, friendlier printf/print/sprintf + say
 
 =head1 VERSION
 
-Version  "1.1.18"
+Version  "1.1.19"
 
 =head1 SYNOPSIS
 

@@ -11,7 +11,7 @@ WriteMakefile(
     BUILD_REQUIRES=> { 'ExtUtils::MakeMaker' => '6.82', },
     PREREQ_PM    => {
 										 'mem'			=> '0.4.5', 		'Types::Core' => '0.1.3',
-										 'Xporter'	=>	'0.0.8',
+										 'Xporter'	=>	'0.0.9',
                     },
 		TEST_REQUIRES=> {
                      'Test::Simple' => 0.44,		'Types::Core' => '0.1.3',

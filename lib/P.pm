@@ -5,11 +5,12 @@
 	BEGIN{ $::INC{__PACKAGE__.".pm"} = __FILE__."#__LINE__"};
 
 	use warnings;
-	our $VERSION='1.1.23';
+	our $VERSION='1.1.24';
 	use utf8;
 # vim=:SetNumberAndWidth
 
 	# RCS $Revision: 1.41 $ -  $Date: 2013-11-12 14:17:12-08 $
+	# 1.1.24	- respin for another Makefile change  
 	# 1.1.23	- respin for a Makefile change
 	# 1.1.22	- respin to use alt version format 
 	# 1.1.21	- respin to have BUID_REQ include more modern Ext:MM
@@ -386,7 +387,7 @@ P  -   Safer, friendlier printf/print/sprintf + say
 
 =head1 VERSION
 
-Version  "1.1.23"
+Version  "1.1.24"
 
 =head1 SYNOPSIS
 
